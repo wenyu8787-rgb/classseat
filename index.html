@@ -1,0 +1,3720 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式班級座位表</title>
+    <style>
+        body {
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 2px solid #e2e8f0;
+        }
+
+        .btn-secondary:hover {
+            background: #edf2f7;
+            border-color: #cbd5e0;
+        }
+
+        .classroom {
+            background: #f8fafc;
+            border-radius: 15px;
+            padding: 30px;
+            position: relative;
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .teacher-desk {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        .seating-grid {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 15px;
+            width: 100%;
+            max-width: none;
+            margin: 0 auto;
+            justify-content: center;
+        }
+
+        .seat {
+            background: white;
+            border: 3px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            position: relative;
+        }
+
+        .seat:hover {
+            border-color: #667eea;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.15);
+        }
+
+        .seat.occupied {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%);
+            color: white;
+            border-color: #3182ce;
+        }
+
+        .seat.occupied:hover {
+            background: linear-gradient(135deg, #3182ce 0%, #2c5282 100%);
+        }
+
+        .seat.on-leave {
+            background: linear-gradient(135deg, #fbb6ce 0%, #f093fb 100%);
+            color: #2d3748;
+            border-color: #ed64a6;
+            position: relative;
+        }
+
+        .seat.on-leave:hover {
+            background: linear-gradient(135deg, #f093fb 0%, #ed64a6 100%);
+        }
+
+        .seat.on-leave::before {
+            content: '🏥';
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            font-size: 16px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .seat.drag-source {
+            opacity: 0.5;
+            transform: scale(0.95);
+        }
+
+        .seat.drag-over {
+            border-color: #48bb78 !important;
+            background: #f0fff4 !important;
+            transform: scale(1.05);
+        }
+
+        .seat.occupied.drag-over {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%) !important;
+        }
+
+        .seat.lottery-selected {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%) !important;
+            border: 4px solid #ff6b35 !important;
+            color: #2d3748 !important;
+            animation: lotteryPulse 1s ease-in-out infinite alternate;
+            box-shadow: 0 0 25px rgba(255, 107, 53, 0.8) !important;
+        }
+
+        .seat.lottery-current {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%) !important;
+            border: 4px solid #ff3838 !important;
+            color: white !important;
+            animation: currentPulse 1.2s ease-in-out infinite alternate;
+            box-shadow: 0 0 30px rgba(255, 56, 56, 1) !important;
+            transform: scale(1.05) !important;
+        }
+
+        .seat.lottery-previous {
+            background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%) !important;
+            border: 3px solid #ff6b35 !important;
+            color: #2d3748 !important;
+            box-shadow: 0 0 15px rgba(255, 107, 53, 0.5) !important;
+            animation: none !important;
+        }
+
+        .seat.lottery-animation {
+            background: linear-gradient(135deg, #4299e1 0%, #3182ce 100%) !important;
+            border: 3px solid #2b6cb0 !important;
+            color: white !important;
+            animation: lotteryFlash 0.3s ease-in-out;
+            box-shadow: 0 0 15px rgba(66, 153, 225, 0.6) !important;
+        }
+
+        @keyframes lotteryPulse {
+            from {
+                transform: scale(1) translateY(-3px);
+                box-shadow: 0 8px 25px rgba(255, 107, 53, 0.6);
+            }
+            to {
+                transform: scale(1.05) translateY(-5px);
+                box-shadow: 0 12px 30px rgba(255, 107, 53, 1);
+            }
+        }
+
+        @keyframes currentPulse {
+            from {
+                transform: scale(1.05) translateY(-3px);
+                box-shadow: 0 10px 30px rgba(255, 56, 56, 0.8);
+            }
+            to {
+                transform: scale(1.1) translateY(-6px);
+                box-shadow: 0 15px 40px rgba(255, 56, 56, 1);
+            }
+        }
+
+        @keyframes lotteryFlash {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(66, 153, 225, 0.6);
+            }
+            50% {
+                transform: scale(1.1);
+                box-shadow: 0 0 25px rgba(66, 153, 225, 1);
+            }
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 15px rgba(66, 153, 225, 0.6);
+            }
+        }
+
+        @keyframes resultPop {
+            0% {
+                transform: translate(-50%, -50%) scale(0.5);
+                opacity: 0;
+            }
+            50% {
+                transform: translate(-50%, -50%) scale(1.1);
+                opacity: 1;
+            }
+            100% {
+                transform: translate(-50%, -50%) scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes timerFinished {
+            from {
+                transform: scale(1);
+                box-shadow: 0 0 20px rgba(245, 101, 101, 0.5);
+            }
+            to {
+                transform: scale(1.05);
+                box-shadow: 0 0 30px rgba(245, 101, 101, 1);
+            }
+        }
+
+        @keyframes timerNotificationPulse {
+            from {
+                transform: translate(-50%, -50%) scale(1);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+            }
+            to {
+                transform: translate(-50%, -50%) scale(1.05);
+                box-shadow: 0 25px 50px rgba(0,0,0,0.4);
+            }
+        }
+
+        .drag-indicator {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(255,255,255,0.8);
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            cursor: grab;
+        }
+
+        .drag-indicator:active {
+            cursor: grabbing;
+        }
+
+
+
+        .seat-number {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+
+        .student-name {
+            font-weight: 600;
+            font-size: 1rem;
+            text-align: center;
+        }
+
+        .student-score {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+
+        .score-btn {
+            background: rgba(255,255,255,0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            color: #4a5568;
+        }
+
+        .score-btn:hover {
+            background: white;
+            transform: scale(1.1);
+        }
+
+        .score-btn.plus:hover {
+            background: #48bb78;
+            color: white;
+        }
+
+        .score-btn.minus:hover {
+            background: #f56565;
+            color: white;
+        }
+
+        .score-display {
+            background: rgba(255,255,255,0.9);
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-weight: bold;
+            min-width: 30px;
+            text-align: center;
+            color: #2d3748;
+        }
+
+        .score-display.negative {
+            color: #e53e3e;
+            background: rgba(254, 226, 226, 0.9);
+        }
+
+        .empty-seat {
+            color: #a0aec0;
+            font-style: italic;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            backdrop-filter: blur(5px);
+        }
+
+        .modal-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+            min-width: 300px;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #2d3748;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+            text-align: center;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px 25px;
+            background: #f7fafc;
+            border-radius: 10px;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .seating-grid {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 10px;
+            }
+            
+            .seat {
+                padding: 15px 10px;
+                min-height: 70px;
+            }
+            
+            .container {
+                padding: 20px;
+            }
+            
+            .title {
+                font-size: 2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .seating-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+            
+            .controls {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .btn {
+                width: 200px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🏫 互動式班級座位表</h1>
+        </div>
+
+        <!-- 班級選擇區域 -->
+        <div class="class-selector" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; border-radius: 15px; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 15px;">
+                <div style="display: flex; align-items: center; gap: 15px; flex-wrap: wrap;">
+                    <h3 style="margin: 0; font-size: 1.2rem;">🏫 目前班級：</h3>
+                    <select id="classSelector" onchange="switchClass()" style="padding: 10px 15px; border-radius: 8px; border: none; font-size: 1rem; min-width: 150px; font-weight: 600;">
+                        <option value="class1">一年一班</option>
+                    </select>
+                    <span id="classStats" style="background: rgba(255,255,255,0.2); padding: 8px 12px; border-radius: 6px; font-size: 0.9rem;">
+                        0 位學生
+                    </span>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                    <button class="btn" onclick="showAddClassModal()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                        ➕ 新增班級
+                    </button>
+                    <button class="btn" onclick="showManageClassModal()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                        ⚙️ 管理班級
+                    </button>
+                    <button id="toggleControlsBtn" class="btn" onclick="toggleControls()" style="background: #4a5568; color: white;">
+                        📋 顯示功能表
+                    </button>
+                    <button id="fullscreenBtn" class="btn" onclick="toggleFullscreen()" style="background: #38a169; color: white;">
+                        🖥️ 全螢幕顯示
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- 功能表面板 -->
+        <div class="controls" id="controlsPanel" style="display: none;">
+            <button class="btn btn-primary" onclick="showImportModal()">📥 匯入學生</button>
+            <button class="btn btn-primary" onclick="showLayoutModal()">⚙️ 調整配置</button>
+            <button class="btn btn-primary" onclick="showLotteryControls()">🎲 抽籤</button>
+            <button class="btn btn-primary" onclick="showTimerModal()">⏰ 倒數計時</button>
+            <button class="btn btn-primary" onclick="showLeaveModal()">🏥 請假</button>
+            <button class="btn btn-secondary" onclick="exportData()">💾 匯出資料</button>
+            <button class="btn btn-secondary" onclick="exportToExcel()">📊 匯出Excel</button>
+            <button class="btn btn-secondary" onclick="showImportDataModal()">📂 匯入資料</button>
+
+        </div>
+
+        <!-- 抽籤控制面板 -->
+        <div class="lottery-controls" id="lotteryControls" style="display: none;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 15px; margin-bottom: 20px;">
+                <h3 style="margin: 0 0 15px 0; font-size: 1.3rem;">🎲 抽籤控制台</h3>
+                
+                <div style="display: flex; gap: 20px; align-items: center; flex-wrap: wrap; justify-content: center;">
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-weight: 600;">一次抽取：</label>
+                        <select id="lotteryCount" style="padding: 8px 12px; border-radius: 8px; border: none; font-size: 1rem; min-width: 80px;">
+                            <option value="1">1 人</option>
+                            <option value="2">2 人</option>
+                            <option value="3">3 人</option>
+                            <option value="4">4 人</option>
+                            <option value="5">5 人</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-weight: 600;">抽籤模式：</label>
+                        <select id="lotteryMode" style="padding: 8px 12px; border-radius: 8px; border: none; font-size: 1rem; min-width: 120px;">
+                            <option value="continue">連續抽籤</option>
+                            <option value="reset">重複抽籤</option>
+                        </select>
+                    </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <label style="font-weight: 600;">🔊 音效：</label>
+                        <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                            <input type="checkbox" id="soundEnabled" checked style="transform: scale(1.2);">
+                            <span id="soundStatus" style="font-size: 0.9rem;">開啟</span>
+                        </label>
+                    </div>
+                    
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn" onclick="startDirectLottery()" style="background: #48bb78; color: white; border: none;">
+                            🎯 開始抽籤
+                        </button>
+                        <button class="btn" onclick="resetLottery()" style="background: #f56565; color: white; border: none;">
+                            🔄 重設抽籤
+                        </button>
+                        <button class="btn" onclick="hideLotteryControls()" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">
+                            ✕ 關閉
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="lotteryStatus" style="margin-top: 15px; padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; text-align: center; font-size: 0.9rem;">
+                    <span id="availableStudentsInfo">準備就緒</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="classroom">
+            <div class="teacher-desk">
+                👩‍🏫 講台區域
+            </div>
+            
+            <div class="seating-grid" id="seatingGrid">
+                <!-- 座位將由 JavaScript 動態生成 -->
+            </div>
+        </div>
+
+        <div class="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="occupiedCount">0</div>
+                <div class="stat-label">已安排座位</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="emptyCount">30</div>
+                <div class="stat-label">空座位</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="totalSeatsCount">30</div>
+                <div class="stat-label">總座位數</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 編輯座位模態框 -->
+    <div class="modal" id="editModal">
+        <div class="modal-content">
+            <h3 class="modal-title">編輯座位資訊</h3>
+            <div class="form-group">
+                <label class="form-label">學生姓名</label>
+                <input type="text" class="form-input" id="studentNameInput" placeholder="請輸入學生姓名">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveStudent()">儲存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匯入學生名單模態框 -->
+    <div class="modal" id="importModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="modal-title">📥 匯入學生名單</h3>
+            <div class="form-group">
+                <label class="form-label">輸入方式</label>
+                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                    <button class="btn btn-secondary" id="textInputBtn" onclick="switchImportMode('text')" style="flex: 1;">手動輸入</button>
+                    <button class="btn btn-secondary" id="fileInputBtn" onclick="switchImportMode('file')" style="flex: 1;">檔案上傳</button>
+                </div>
+            </div>
+            
+            <!-- 手動輸入模式 -->
+            <div id="textInputMode">
+                <div class="form-group">
+                    <label class="form-label">學生姓名 (每行一個姓名)</label>
+                    <textarea class="form-input" id="studentListInput" rows="8" placeholder="請輸入學生姓名，每行一個：&#10;&#10;王小明&#10;李小華&#10;張小美&#10;陳小強"></textarea>
+                </div>
+                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                    💡 <strong>使用說明：</strong><br>
+                    • 每行輸入一個學生姓名<br>
+                    • 系統會按順序分配座位（從座位1開始）<br>
+                    • 最多支援 <span id="maxStudentsText">30</span> 位學生
+                </div>
+            </div>
+            
+            <!-- 檔案上傳模式 -->
+            <div id="fileInputMode" style="display: none;">
+                <div class="form-group">
+                    <label class="form-label">選擇文字檔案 (.txt)</label>
+                    <input type="file" class="form-input" id="fileInput" accept=".txt" style="padding: 8px;">
+                </div>
+                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                    💡 <strong>檔案格式：</strong><br>
+                    • 純文字檔案 (.txt)<br>
+                    • 每行一個學生姓名<br>
+                    • 使用 UTF-8 編碼
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeImportModal()">取消</button>
+                <button class="btn btn-primary" onclick="importStudents()">匯入並按順序排座位</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 匯入資料模態框 -->
+    <div class="modal" id="importDataModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="modal-title">📂 匯入座位資料</h3>
+            <div class="form-group">
+                <label class="form-label">選擇資料檔案 (.json)</label>
+                <input type="file" class="form-input" id="dataFileInput" accept=".json" style="padding: 8px;">
+            </div>
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                💡 <strong>匯入說明：</strong><br>
+                • 請選擇之前匯出的 JSON 資料檔案<br>
+                • 支援單班級或多班級資料格式<br>
+                • 將會完整還原所有班級的座位配置、學生姓名和分數<br>
+                • 匯入後會覆蓋目前的所有班級資料
+            </div>
+            <div id="importDataWarning" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #856404; display: none;">
+                ⚠️ <strong>注意：</strong>匯入資料將會覆蓋目前所有班級的座位安排和學生資料！
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeImportDataModal()">取消</button>
+                <button class="btn btn-primary" onclick="importData()">匯入資料</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 抽籤模態框 -->
+    <div class="modal" id="lotteryModal">
+        <div class="modal-content" style="max-width: 500px; text-align: center;">
+            <h3 class="modal-title">🎲 抽籤選學生</h3>
+            
+            <div id="lotteryWheel" style="margin: 30px 0;">
+                <div id="wheelContainer" style="position: relative; width: 300px; height: 300px; margin: 0 auto; border-radius: 50%; border: 8px solid #667eea; background: conic-gradient(from 0deg, #ff6b6b, #4ecdc4, #45b7d1, #96ceb4, #feca57, #ff9ff3, #54a0ff, #5f27cd); animation: none; transition: transform 3s cubic-bezier(0.23, 1, 0.32, 1);">
+                    <div id="wheelPointer" style="position: absolute; top: -15px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 15px solid transparent; border-right: 15px solid transparent; border-bottom: 30px solid #2d3748; z-index: 10;"></div>
+                    <div id="wheelCenter" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 60px; height: 60px; background: white; border-radius: 50%; border: 4px solid #667eea; display: flex; align-items: center; justify-content: center; font-size: 24px; z-index: 5;">🎯</div>
+                </div>
+            </div>
+            
+            <div id="lotteryResult" style="margin: 20px 0; min-height: 60px; display: flex; align-items: center; justify-content: center;">
+                <div id="resultDisplay" style="font-size: 1.5rem; font-weight: bold; color: #667eea; display: none;">
+                    🎉 抽中：<span id="selectedStudent"></span>
+                </div>
+                <div id="readyMessage" style="color: #718096;">
+                    點擊「開始抽籤」來隨機選擇一位學生！
+                </div>
+            </div>
+            
+            <div id="lotteryStats" style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; color: #2c5282;">
+                📊 <strong>抽籤資訊：</strong><br>
+                • 參與學生：<span id="lotteryStudentCount">0</span> 位<br>
+                • 每位學生中籤機率相等
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeLotteryModal()">關閉</button>
+                <button class="btn btn-primary" id="lotteryBtn" onclick="spinWheel()">🎲 開始抽籤</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增班級模態框 -->
+    <div class="modal" id="addClassModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3 class="modal-title">➕ 新增班級</h3>
+            <div class="form-group">
+                <label class="form-label">班級名稱</label>
+                <input type="text" class="form-input" id="newClassName" placeholder="例如：二年三班">
+            </div>
+            <div class="form-group">
+                <label class="form-label">座位配置</label>
+                <div style="display: flex; gap: 15px; align-items: center;">
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.9rem; color: #718096;">列數</label>
+                        <input type="number" class="form-input" id="newClassColumns" value="6" min="1" max="10" style="text-align: center;">
+                    </div>
+                    <div style="flex: 1;">
+                        <label style="font-size: 0.9rem; color: #718096;">欄數</label>
+                        <input type="number" class="form-input" id="newClassRows" value="5" min="1" max="10" style="text-align: center;">
+                    </div>
+                </div>
+            </div>
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                💡 <strong>說明：</strong><br>
+                • 新班級將使用指定的座位配置<br>
+                • 可以稍後調整座位配置和匯入學生名單<br>
+                • 每個班級的資料都會獨立儲存
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeAddClassModal()">取消</button>
+                <button class="btn btn-primary" onclick="createNewClass()">建立班級</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 管理班級模態框 -->
+    <div class="modal" id="manageClassModal">
+        <div class="modal-content" style="max-width: 500px;">
+            <h3 class="modal-title">⚙️ 管理班級</h3>
+            <div id="classListContainer" style="max-height: 300px; overflow-y: auto;">
+                <!-- 班級列表將由 JavaScript 動態生成 -->
+            </div>
+            <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; color: #856404;">
+                ⚠️ <strong>注意：</strong>刪除班級將會永久移除該班級的所有學生資料和座位安排！
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeManageClassModal()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 學生請假管理模態框 -->
+    <div class="modal" id="leaveModal">
+        <div class="modal-content" style="max-width: 600px;">
+            <h3 class="modal-title">🏥 學生請假管理</h3>
+            
+            <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+                <button class="btn btn-primary" id="leaveTabBtn" onclick="switchLeaveTab('leave')" style="flex: 1;">設定請假</button>
+                <button class="btn btn-secondary" id="returnTabBtn" onclick="switchLeaveTab('return')" style="flex: 1;">銷假返校</button>
+                <button class="btn btn-secondary" id="historyTabBtn" onclick="switchLeaveTab('history')" style="flex: 1;">請假記錄</button>
+            </div>
+            
+            <!-- 設定請假頁面 -->
+            <div id="leaveTab">
+                <div class="form-group">
+                    <label class="form-label">選擇請假學生</label>
+                    <select class="form-input" id="leaveStudentSelect">
+                        <option value="">請選擇學生</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">請假類型</label>
+                    <select class="form-input" id="leaveTypeSelect">
+                        <option value="sick">病假 🤒</option>
+                        <option value="personal">事假 📋</option>
+                        <option value="family">家庭事假 🏠</option>
+                        <option value="other">其他 📝</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">請假原因 (選填)</label>
+                    <textarea class="form-input" id="leaveReasonInput" rows="3" placeholder="請輸入請假原因..."></textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">請假日期</label>
+                    <input type="date" class="form-input" id="leaveDateInput">
+                </div>
+                
+                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                    💡 <strong>說明：</strong><br>
+                    • 設定請假後，該學生座位會顯示為粉色並標示請假圖示<br>
+                    • 請假學生不會參與抽籤活動<br>
+                    • 可隨時為學生辦理銷假返校
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="closeLeaveModal()">取消</button>
+                    <button class="btn btn-primary" onclick="setStudentLeave()">🏥 設定請假</button>
+                </div>
+            </div>
+            
+            <!-- 銷假返校頁面 -->
+            <div id="returnTab" style="display: none;">
+                <div id="onLeaveStudentsList">
+                    <!-- 請假學生列表將由 JavaScript 動態生成 -->
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="closeLeaveModal()">關閉</button>
+                </div>
+            </div>
+            
+            <!-- 請假記錄頁面 -->
+            <div id="historyTab" style="display: none;">
+                <div style="max-height: 300px; overflow-y: auto;">
+                    <div id="leaveHistoryList">
+                        <!-- 請假記錄將由 JavaScript 動態生成 -->
+                    </div>
+                </div>
+                
+                <div style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; color: #856404;">
+                    📊 <strong>統計資訊：</strong><br>
+                    • 目前請假人數：<span id="currentLeaveCount">0</span> 人<br>
+                    • 歷史請假記錄：<span id="totalLeaveRecords">0</span> 筆
+                </div>
+                
+                <div class="modal-buttons">
+                    <button class="btn btn-secondary" onclick="closeLeaveModal()">關閉</button>
+                    <button class="btn btn-secondary" onclick="clearLeaveHistory()">🗑️ 清除歷史記錄</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 倒數計時器模態框 -->
+    <div class="modal" id="timerModal">
+        <div class="modal-content" style="max-width: 500px; text-align: center;">
+            <h3 class="modal-title">⏰ 倒數計時器</h3>
+            
+            <!-- 計時器設定區域 -->
+            <div id="timerSetup" style="margin: 20px 0;">
+                <div style="display: flex; gap: 15px; justify-content: center; align-items: center; margin-bottom: 20px;">
+                    <div style="text-align: center;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">分鐘</label>
+                        <input type="number" id="timerMinutes" min="0" max="59" value="5" style="width: 60px; padding: 8px; border: 2px solid #e2e8f0; border-radius: 8px; text-align: center; font-size: 1.2rem; font-weight: bold;">
+                    </div>
+                    <div style="font-size: 2rem; color: #667eea; font-weight: bold;">:</div>
+                    <div style="text-align: center;">
+                        <label style="display: block; margin-bottom: 5px; font-weight: 600; color: #4a5568;">秒鐘</label>
+                        <input type="number" id="timerSeconds" min="0" max="59" value="0" style="width: 60px; padding: 8px; border: 2px solid #e2e8f0; border-radius: 8px; text-align: center; font-size: 1.2rem; font-weight: bold;">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 10px; justify-content: center; margin-bottom: 20px;">
+                    <button class="btn btn-secondary" onclick="setQuickTimer(1, 0)" style="padding: 8px 12px; font-size: 0.9rem;">1分鐘</button>
+                    <button class="btn btn-secondary" onclick="setQuickTimer(3, 0)" style="padding: 8px 12px; font-size: 0.9rem;">3分鐘</button>
+                    <button class="btn btn-secondary" onclick="setQuickTimer(5, 0)" style="padding: 8px 12px; font-size: 0.9rem;">5分鐘</button>
+                    <button class="btn btn-secondary" onclick="setQuickTimer(10, 0)" style="padding: 8px 12px; font-size: 0.9rem;">10分鐘</button>
+                    <button class="btn btn-secondary" onclick="setQuickTimer(0, 30)" style="padding: 8px 12px; font-size: 0.9rem;">30秒</button>
+                </div>
+            </div>
+            
+            <!-- 計時器顯示區域 -->
+            <div id="timerDisplay" style="margin: 30px 0;">
+                <div id="timerCircle" style="width: 200px; height: 200px; margin: 0 auto; border-radius: 50%; border: 8px solid #e2e8f0; display: flex; align-items: center; justify-content: center; position: relative; background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); transition: all 0.3s ease;">
+                    <div id="timerText" style="font-size: 2.5rem; font-weight: bold; color: #667eea;">05:00</div>
+                    <svg style="position: absolute; top: -8px; left: -8px; width: 216px; height: 216px; transform: rotate(-90deg);">
+                        <circle id="timerProgress" cx="108" cy="108" r="100" fill="none" stroke="#667eea" stroke-width="8" stroke-dasharray="628.32" stroke-dashoffset="628.32" style="transition: stroke-dashoffset 1s linear;"></circle>
+                    </svg>
+                </div>
+                
+                <div id="timerStatus" style="margin-top: 20px; font-size: 1.1rem; color: #718096; font-weight: 600;">
+                    準備開始計時
+                </div>
+            </div>
+            
+            <!-- 計時器控制按鈕 -->
+            <div id="timerControls" style="margin: 20px 0;">
+                <div style="display: flex; gap: 10px; justify-content: center;">
+                    <button class="btn btn-primary" id="startTimerBtn" onclick="startTimer()" style="background: #48bb78; border: none;">
+                        ▶️ 開始計時
+                    </button>
+                    <button class="btn btn-secondary" id="pauseTimerBtn" onclick="pauseTimer()" style="display: none;">
+                        ⏸️ 暫停
+                    </button>
+                    <button class="btn btn-secondary" id="resumeTimerBtn" onclick="resumeTimer()" style="display: none;">
+                        ▶️ 繼續
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetTimer()">
+                        🔄 重設
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 音效設定 -->
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0; font-size: 0.9rem; color: #2c5282;">
+                <div style="display: flex; align-items: center; justify-content: center; gap: 15px; margin-bottom: 10px;">
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="timerSoundEnabled" checked style="transform: scale(1.2);">
+                        <span>🔊 結束提示音</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                        <input type="checkbox" id="timerTickEnabled" style="transform: scale(1.2);">
+                        <span>⏱️ 滴答聲</span>
+                    </label>
+                </div>
+                <div style="font-size: 0.8rem; color: #4a5568;">
+                    💡 計時結束時會播放提示音並顯示通知
+                </div>
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeTimerModal()">關閉</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 座位配置調整模態框 -->
+    <div class="modal" id="layoutModal">
+        <div class="modal-content" style="max-width: 400px;">
+            <h3 class="modal-title">⚙️ 調整座位配置</h3>
+            
+            <div class="form-group">
+                <label class="form-label">列數 (橫向座位數)</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <input type="range" id="columnsSlider" min="1" max="10" value="6" style="flex: 1;" oninput="updateLayoutPreview()">
+                    <span id="columnsValue" style="font-weight: bold; color: #667eea; min-width: 30px;">6</span>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">欄數 (縱向座位數)</label>
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <input type="range" id="rowsSlider" min="1" max="10" value="5" style="flex: 1;" oninput="updateLayoutPreview()">
+                    <span id="rowsValue" style="font-weight: bold; color: #667eea; min-width: 30px;">5</span>
+                </div>
+            </div>
+            
+            <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #2c5282;">
+                📊 <strong>配置預覽：</strong><br>
+                • 總座位數：<span id="totalSeatsPreview" style="font-weight: bold;">30</span> 個<br>
+                • 配置：<span id="layoutPreview" style="font-weight: bold;">6 列 × 5 欄</span><br>
+                • 現有學生：<span id="currentStudentsCount" style="font-weight: bold;">0</span> 位
+            </div>
+            
+            <div id="layoutWarning" style="background: #fff3cd; border: 1px solid #ffeaa7; padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.9rem; color: #856404; display: none;">
+                ⚠️ <strong>注意：</strong>新配置的座位數少於現有學生數，部分學生將被移除！
+            </div>
+            
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeLayoutModal()">取消</button>
+                <button class="btn btn-primary" onclick="applyLayoutChanges()">套用配置</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentSeatIndex = null;
+        let currentClassId = 'class1'; // 目前選中的班級ID
+        
+        // 多班級資料結構
+        let classesData = {
+            'class1': {
+                name: '一年一班',
+                columns: 6,
+                rows: 5,
+                students: new Array(30).fill(null),
+                studentScores: new Array(30).fill(0),
+                studentLeaveStatus: new Array(30).fill(false), // 請假狀態
+                leaveHistory: [] // 請假記錄
+            }
+        };
+        
+        // 目前班級的快速存取變數（為了向後相容）
+        let columns = 6; // 列數 (橫向)
+        let rows = 5;    // 欄數 (縱向)
+        let totalSeats = columns * rows;
+        let students = new Array(totalSeats).fill(null);
+        let studentScores = new Array(totalSeats).fill(0); // 學生分數陣列
+        let studentLeaveStatus = new Array(totalSeats).fill(false); // 學生請假狀態陣列
+
+        // 載入目前班級資料到快速存取變數
+        function loadCurrentClassData() {
+            const classData = classesData[currentClassId];
+            if (classData) {
+                columns = classData.columns;
+                rows = classData.rows;
+                totalSeats = columns * rows;
+                students = [...classData.students];
+                studentScores = [...classData.studentScores];
+                studentLeaveStatus = [...(classData.studentLeaveStatus || new Array(totalSeats).fill(false))];
+                
+                // 確保陣列長度正確
+                while (students.length < totalSeats) students.push(null);
+                while (studentScores.length < totalSeats) studentScores.push(0);
+                while (studentLeaveStatus.length < totalSeats) studentLeaveStatus.push(false);
+                
+                // 如果陣列太長，截斷
+                if (students.length > totalSeats) {
+                    students = students.slice(0, totalSeats);
+                    studentScores = studentScores.slice(0, totalSeats);
+                    studentLeaveStatus = studentLeaveStatus.slice(0, totalSeats);
+                }
+                
+                // 確保請假記錄存在
+                if (!classData.leaveHistory) {
+                    classData.leaveHistory = [];
+                }
+            }
+        }
+
+        // 儲存目前班級資料
+        function saveCurrentClassData() {
+            if (classesData[currentClassId]) {
+                classesData[currentClassId].columns = columns;
+                classesData[currentClassId].rows = rows;
+                classesData[currentClassId].students = [...students];
+                classesData[currentClassId].studentScores = [...studentScores];
+                classesData[currentClassId].studentLeaveStatus = [...studentLeaveStatus];
+                
+                // 自動儲存到 localStorage
+                saveToLocalStorage();
+            }
+        }
+
+        // 儲存資料到 localStorage
+        function saveToLocalStorage() {
+            try {
+                const dataToSave = {
+                    version: '2.0',
+                    timestamp: new Date().toISOString(),
+                    currentClassId: currentClassId,
+                    classesData: classesData
+                };
+                
+                localStorage.setItem('seatingArrangementData', JSON.stringify(dataToSave));
+                console.log('資料已自動儲存到本地');
+            } catch (error) {
+                console.error('儲存到 localStorage 失敗:', error);
+                // 如果儲存失敗（可能是空間不足），嘗試清理舊資料
+                if (error.name === 'QuotaExceededError') {
+                    alert('本地儲存空間不足，請匯出重要資料後清理瀏覽器資料。');
+                }
+            }
+        }
+
+        // 從 localStorage 載入資料
+        function loadFromLocalStorage() {
+            try {
+                const savedData = localStorage.getItem('seatingArrangementData');
+                if (savedData) {
+                    const parsedData = JSON.parse(savedData);
+                    
+                    // 檢查資料版本
+                    if (parsedData.version === '2.0' && parsedData.classesData) {
+                        // 載入多班級資料
+                        classesData = { ...parsedData.classesData };
+                        currentClassId = parsedData.currentClassId || Object.keys(classesData)[0];
+                        
+                        // 確保目前班級ID存在
+                        if (!classesData[currentClassId]) {
+                            currentClassId = Object.keys(classesData)[0];
+                        }
+                        
+                        console.log('已從本地載入資料:', Object.keys(classesData).length + ' 個班級');
+                        return true;
+                    }
+                }
+                return false;
+            } catch (error) {
+                console.error('從 localStorage 載入資料失敗:', error);
+                return false;
+            }
+        }
+
+        // 清除 localStorage 資料
+        function clearLocalStorage() {
+            try {
+                localStorage.removeItem('seatingArrangementData');
+                console.log('本地資料已清除');
+            } catch (error) {
+                console.error('清除本地資料失敗:', error);
+            }
+        }
+
+        // 更新班級選擇器
+        function updateClassSelector() {
+            const selector = document.getElementById('classSelector');
+            selector.innerHTML = '';
+            
+            Object.keys(classesData).forEach(classId => {
+                const option = document.createElement('option');
+                option.value = classId;
+                option.textContent = classesData[classId].name;
+                if (classId === currentClassId) {
+                    option.selected = true;
+                }
+                selector.appendChild(option);
+            });
+            
+            updateClassStats();
+        }
+
+        // 更新班級統計
+        function updateClassStats() {
+            const classData = classesData[currentClassId];
+            if (classData) {
+                const studentCount = classData.students.filter(s => s !== null && s !== undefined && s.trim() !== '').length;
+                document.getElementById('classStats').textContent = `${studentCount} 位學生`;
+            }
+        }
+
+        // 切換班級
+        function switchClass() {
+            // 儲存目前班級資料
+            saveCurrentClassData();
+            
+            // 切換到新班級
+            const selector = document.getElementById('classSelector');
+            currentClassId = selector.value;
+            
+            // 載入新班級資料
+            loadCurrentClassData();
+            
+            // 重新初始化座位表
+            initializeSeating();
+            
+            // 隱藏抽籤控制面板（如果開啟的話）
+            document.getElementById('lotteryControls').style.display = 'none';
+            clearAllHighlights();
+        }
+
+        // 顯示新增班級模態框
+        function showAddClassModal() {
+            document.getElementById('addClassModal').style.display = 'block';
+            document.getElementById('newClassName').value = '';
+            document.getElementById('newClassColumns').value = '6';
+            document.getElementById('newClassRows').value = '5';
+        }
+
+        // 關閉新增班級模態框
+        function closeAddClassModal() {
+            document.getElementById('addClassModal').style.display = 'none';
+        }
+
+        // 建立新班級
+        function createNewClass() {
+            const className = document.getElementById('newClassName').value.trim();
+            const newColumns = parseInt(document.getElementById('newClassColumns').value);
+            const newRows = parseInt(document.getElementById('newClassRows').value);
+            
+            if (!className) {
+                alert('請輸入班級名稱！');
+                return;
+            }
+            
+            // 檢查班級名稱是否重複
+            const existingNames = Object.values(classesData).map(c => c.name);
+            if (existingNames.includes(className)) {
+                alert('班級名稱已存在，請使用不同的名稱！');
+                return;
+            }
+            
+            // 生成新的班級ID
+            let newClassId = 'class' + (Object.keys(classesData).length + 1);
+            while (classesData[newClassId]) {
+                newClassId = 'class' + (parseInt(newClassId.replace('class', '')) + 1);
+            }
+            
+            // 建立新班級資料
+            const newTotalSeats = newColumns * newRows;
+            classesData[newClassId] = {
+                name: className,
+                columns: newColumns,
+                rows: newRows,
+                students: new Array(newTotalSeats).fill(null),
+                studentScores: new Array(newTotalSeats).fill(0),
+                studentLeaveStatus: new Array(newTotalSeats).fill(false),
+                leaveHistory: []
+            };
+            
+            // 更新選擇器
+            updateClassSelector();
+            
+            // 切換到新班級
+            currentClassId = newClassId;
+            document.getElementById('classSelector').value = currentClassId;
+            loadCurrentClassData();
+            initializeSeating();
+            
+            closeAddClassModal();
+            alert(`班級「${className}」建立成功！\n座位配置：${newColumns} 列 × ${newRows} 欄 (共 ${newTotalSeats} 個座位)`);
+        }
+
+        // 顯示管理班級模態框
+        function showManageClassModal() {
+            document.getElementById('manageClassModal').style.display = 'block';
+            updateClassList();
+        }
+
+        // 關閉管理班級模態框
+        function closeManageClassModal() {
+            document.getElementById('manageClassModal').style.display = 'none';
+        }
+
+        // 更新班級列表
+        function updateClassList() {
+            const container = document.getElementById('classListContainer');
+            container.innerHTML = '';
+            
+            Object.keys(classesData).forEach(classId => {
+                const classData = classesData[classId];
+                const studentCount = classData.students.filter(s => s !== null && s !== undefined && s.trim() !== '').length;
+                const isCurrentClass = classId === currentClassId;
+                
+                const classItem = document.createElement('div');
+                classItem.style.cssText = `
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 15px;
+                    margin-bottom: 10px;
+                    background: ${isCurrentClass ? '#e6f3ff' : '#f8fafc'};
+                    border: 2px solid ${isCurrentClass ? '#667eea' : '#e2e8f0'};
+                    border-radius: 10px;
+                `;
+                
+                classItem.innerHTML = `
+                    <div>
+                        <div style="font-weight: bold; color: #2d3748; margin-bottom: 5px;">
+                            ${classData.name} ${isCurrentClass ? '(目前班級)' : ''}
+                        </div>
+                        <div style="font-size: 0.9rem; color: #718096;">
+                            ${classData.columns} 列 × ${classData.rows} 欄 | ${studentCount} 位學生
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary" onclick="renameClass('${classId}')" style="padding: 6px 12px; font-size: 0.8rem;">
+                            ✏️ 重新命名
+                        </button>
+                        ${Object.keys(classesData).length > 1 ? `
+                            <button class="btn" onclick="deleteClass('${classId}')" style="background: #f56565; color: white; padding: 6px 12px; font-size: 0.8rem; border: none;">
+                                🗑️ 刪除
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                
+                container.appendChild(classItem);
+            });
+        }
+
+        // 重新命名班級
+        function renameClass(classId) {
+            const classData = classesData[classId];
+            const newName = prompt(`請輸入新的班級名稱：`, classData.name);
+            
+            if (newName && newName.trim() && newName.trim() !== classData.name) {
+                const trimmedName = newName.trim();
+                
+                // 檢查名稱是否重複
+                const existingNames = Object.values(classesData)
+                    .filter(c => c !== classData)
+                    .map(c => c.name);
+                
+                if (existingNames.includes(trimmedName)) {
+                    alert('班級名稱已存在，請使用不同的名稱！');
+                    return;
+                }
+                
+                classData.name = trimmedName;
+                updateClassSelector();
+                updateClassList();
+                alert(`班級名稱已更新為「${trimmedName}」`);
+            }
+        }
+
+        // 刪除班級
+        function deleteClass(classId) {
+            if (Object.keys(classesData).length <= 1) {
+                alert('至少需要保留一個班級！');
+                return;
+            }
+            
+            const classData = classesData[classId];
+            const studentCount = classData.students.filter(s => s !== null).length;
+            
+            const confirmMessage = `確定要刪除班級「${classData.name}」嗎？\n\n• 將會永久刪除 ${studentCount} 位學生的資料\n• 此操作無法復原\n\n請輸入班級名稱以確認刪除：`;
+            
+            const confirmation = prompt(confirmMessage);
+            if (confirmation === classData.name) {
+                delete classesData[classId];
+                
+                // 如果刪除的是目前班級，切換到第一個可用班級
+                if (classId === currentClassId) {
+                    currentClassId = Object.keys(classesData)[0];
+                    loadCurrentClassData();
+                    initializeSeating();
+                }
+                
+                updateClassSelector();
+                updateClassList();
+                alert(`班級「${classData.name}」已刪除`);
+            } else if (confirmation !== null) {
+                alert('班級名稱不正確，刪除操作已取消');
+            }
+        }
+
+        // 初始化座位表
+        function initializeSeating() {
+            const grid = document.getElementById('seatingGrid');
+            grid.innerHTML = '';
+            
+            // 更新網格樣式
+            grid.style.gridTemplateColumns = `repeat(${columns}, 1fr)`;
+            
+            for (let i = 0; i < totalSeats; i++) {
+                const seat = document.createElement('div');
+                seat.className = 'seat';
+                seat.onclick = () => editSeat(i);
+                seat.dataset.seatIndex = i;
+                
+                // 設定拖拉功能
+                seat.draggable = true;
+                seat.addEventListener('dragstart', handleDragStart);
+                seat.addEventListener('dragover', handleDragOver);
+                seat.addEventListener('drop', handleDrop);
+                seat.addEventListener('dragend', handleDragEnd);
+                seat.addEventListener('dragenter', handleDragEnter);
+                seat.addEventListener('dragleave', handleDragLeave);
+                
+                const seatNumber = document.createElement('div');
+                seatNumber.className = 'seat-number';
+                seatNumber.textContent = `座位 ${i + 1}`;
+                
+                const studentName = document.createElement('div');
+                studentName.className = 'student-name';
+                
+                if (students[i]) {
+                    if (studentLeaveStatus[i]) {
+                        seat.classList.add('on-leave');
+                    } else {
+                        seat.classList.add('occupied');
+                    }
+                    studentName.textContent = students[i];
+                    
+                    // 新增拖拉指示器
+                    const dragIndicator = document.createElement('div');
+                    dragIndicator.className = 'drag-indicator';
+                    dragIndicator.innerHTML = '⋮⋮';
+                    dragIndicator.title = '拖拉移動學生';
+                    seat.appendChild(dragIndicator);
+                    
+
+                    
+                    // 新增分數控制區域
+                    const scoreContainer = document.createElement('div');
+                    scoreContainer.className = 'student-score';
+                    
+                    const minusBtn = document.createElement('button');
+                    minusBtn.className = 'score-btn minus';
+                    minusBtn.innerHTML = '−';
+                    
+                    // 如果學生請假，禁用按鈕
+                    if (studentLeaveStatus[i]) {
+                        minusBtn.disabled = true;
+                        minusBtn.style.opacity = '0.3';
+                        minusBtn.style.cursor = 'not-allowed';
+                        minusBtn.title = '請假學生無法調整分數';
+                    } else {
+                        minusBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            changeScore(i, -1);
+                        });
+                    }
+                    
+                    const scoreDisplay = document.createElement('div');
+                    const score = studentScores[i] || 0;
+                    scoreDisplay.className = score < 0 ? 'score-display negative' : 'score-display';
+                    scoreDisplay.textContent = score;
+                    scoreDisplay.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                    });
+                    
+                    const plusBtn = document.createElement('button');
+                    plusBtn.className = 'score-btn plus';
+                    plusBtn.innerHTML = '+';
+                    
+                    // 如果學生請假，禁用按鈕
+                    if (studentLeaveStatus[i]) {
+                        plusBtn.disabled = true;
+                        plusBtn.style.opacity = '0.3';
+                        plusBtn.style.cursor = 'not-allowed';
+                        plusBtn.title = '請假學生無法調整分數';
+                    } else {
+                        plusBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            changeScore(i, 1);
+                        });
+                    }
+                    
+                    scoreContainer.appendChild(minusBtn);
+                    scoreContainer.appendChild(scoreDisplay);
+                    scoreContainer.appendChild(plusBtn);
+                    
+                    seat.appendChild(seatNumber);
+                    seat.appendChild(studentName);
+                    seat.appendChild(scoreContainer);
+                } else {
+                    studentName.className += ' empty-seat';
+                    studentName.textContent = '點擊編輯';
+                    seat.appendChild(seatNumber);
+                    seat.appendChild(studentName);
+                }
+                
+                grid.appendChild(seat);
+            }
+            
+            updateStats();
+        }
+
+        // 編輯座位
+        function editSeat(index) {
+            currentSeatIndex = index;
+            const modal = document.getElementById('editModal');
+            const input = document.getElementById('studentNameInput');
+            
+            input.value = students[index] || '';
+            modal.style.display = 'block';
+            input.focus();
+        }
+
+        // 儲存學生資訊
+        function saveStudent() {
+            const input = document.getElementById('studentNameInput');
+            const name = input.value.trim();
+            
+            if (name) {
+                students[currentSeatIndex] = name;
+                // 如果是新學生，初始化分數為0
+                if (studentScores[currentSeatIndex] === undefined) {
+                    studentScores[currentSeatIndex] = 0;
+                }
+            } else {
+                students[currentSeatIndex] = null;
+                studentScores[currentSeatIndex] = 0;
+            }
+            
+            // 儲存到班級資料
+            saveCurrentClassData();
+            
+            closeModal();
+            initializeSeating();
+        }
+
+        // 變更學生分數
+        function changeScore(seatIndex, change) {
+            if (students[seatIndex]) {
+                studentScores[seatIndex] = (studentScores[seatIndex] || 0) + change;
+                // 更新顯示
+                const seat = document.querySelector(`[data-seat-index="${seatIndex}"]`);
+                const scoreDisplay = seat.querySelector('.score-display');
+                if (scoreDisplay) {
+                    const score = studentScores[seatIndex];
+                    scoreDisplay.textContent = score;
+                    scoreDisplay.className = score < 0 ? 'score-display negative' : 'score-display';
+                }
+                // 儲存到班級資料
+                saveCurrentClassData();
+            }
+        }
+
+
+
+        // 關閉模態框
+        function closeModal() {
+            document.getElementById('editModal').style.display = 'none';
+            currentSeatIndex = null;
+        }
+
+        // 隨機排座位
+        function randomizeSeats() {
+            console.log('randomizeSeats 函數被呼叫');
+            
+            const occupiedStudents = students.filter(student => student !== null);
+            console.log('現有學生:', occupiedStudents);
+            
+            if (occupiedStudents.length === 0) {
+                alert('請先新增一些學生再進行隨機排座位！');
+                return;
+            }
+            
+            // 顯示確認警示視窗
+            const confirmMessage = `確定要重新隨機排列所有學生的座位嗎？\n\n• 目前有 ${occupiedStudents.length} 位學生\n• 將會完全打亂現有的座位安排\n• 此操作無法復原\n\n點擊「確定」繼續隨機排座位`;
+            
+            if (!confirm(confirmMessage)) {
+                console.log('用戶取消隨機排座位');
+                return;
+            }
+            
+            console.log('開始隨機排座位...');
+            
+            // 保存現有學生的分數
+            const studentScoreMap = {};
+            for (let i = 0; i < totalSeats; i++) {
+                if (students[i]) {
+                    studentScoreMap[students[i]] = studentScores[i] || 0;
+                }
+            }
+            console.log('學生分數對應:', studentScoreMap);
+            
+            // 清空所有座位
+            students.fill(null);
+            studentScores.fill(0);
+            
+            // 使用 Fisher-Yates 洗牌算法來確保真正的隨機
+            function shuffleArray(array) {
+                const shuffled = [...array];
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+                return shuffled;
+            }
+            
+            // 隨機分配座位
+            const shuffledStudents = shuffleArray(occupiedStudents);
+            const availableSeats = shuffleArray(Array.from({length: totalSeats}, (_, i) => i));
+            
+            console.log('隨機後的學生順序:', shuffledStudents);
+            console.log('隨機後的座位順序:', availableSeats.slice(0, shuffledStudents.length));
+            
+            shuffledStudents.forEach((student, index) => {
+                const seatIndex = availableSeats[index];
+                students[seatIndex] = student;
+                studentScores[seatIndex] = studentScoreMap[student] || 0;
+            });
+            
+            console.log('重新分配後的座位:', students);
+            
+            // 重新初始化座位表
+            initializeSeating();
+            
+            // 顯示完成訊息
+            alert(`隨機排座位完成！\n已重新安排 ${occupiedStudents.length} 位學生的座位。`);
+            console.log('隨機排座位完成');
+        }
+
+        // 清空所有座位
+        function clearAllSeats() {
+            if (confirm('確定要清空所有座位嗎？此操作無法復原。')) {
+                students = new Array(totalSeats).fill(null);
+                studentScores = new Array(totalSeats).fill(0);
+                initializeSeating();
+            }
+        }
+
+        // 匯出Excel檔案
+        function exportToExcel() {
+            try {
+                // 儲存目前班級資料
+                saveCurrentClassData();
+                
+                // 準備Excel資料
+                const worksheetData = [];
+                
+                // 標題行
+                worksheetData.push(['所有班級座位表資料', '', '', '', '', '', '']);
+                worksheetData.push(['匯出時間:', new Date().toLocaleString(), '', '', '', '', '']);
+                worksheetData.push(['班級數量:', Object.keys(classesData).length + ' 個班級', '', '', '', '', '']);
+                worksheetData.push(['']); // 空行
+                
+                let totalStudentsAllClasses = 0;
+                let totalSeatsAllClasses = 0;
+                
+                // 遍歷所有班級
+                Object.keys(classesData).forEach((classId, classIndex) => {
+                    const classData = classesData[classId];
+                    const classStudents = classData.students;
+                    const classScores = classData.studentScores;
+                    const classColumns = classData.columns;
+                    const classRows = classData.rows;
+                    const classTotalSeats = classColumns * classRows;
+                    const classOccupiedCount = classStudents.filter(s => s !== null).length;
+                    
+                    totalStudentsAllClasses += classOccupiedCount;
+                    totalSeatsAllClasses += classTotalSeats;
+                    
+                    // 班級標題
+                    worksheetData.push([`【${classData.name}】`, '', '', '', '', '', '']);
+                    worksheetData.push(['座位配置:', `${classColumns} 列 × ${classRows} 欄 (共 ${classTotalSeats} 個座位)`, '', '', '', '', '']);
+                    worksheetData.push(['學生人數:', `${classOccupiedCount} 位`, '', '', '', '', '']);
+                    worksheetData.push(['']); // 空行
+                    
+                    // 表頭
+                    worksheetData.push(['座位編號', '學生姓名', '分數', '列', '欄', '狀態', '班級']);
+                    
+                    // 學生資料
+                    for (let i = 0; i < classTotalSeats; i++) {
+                        const row = Math.floor(i / classColumns) + 1; // 第幾欄
+                        const col = (i % classColumns) + 1; // 第幾列
+                        
+                        worksheetData.push([
+                            i + 1, // 座位編號
+                            classStudents[i] || '空座位', // 學生姓名
+                            classStudents[i] ? (classScores[i] || 0) : '', // 分數
+                            col, // 列
+                            row, // 欄
+                            classStudents[i] ? '已安排' : '空座位', // 狀態
+                            classData.name // 班級
+                        ]);
+                    }
+                    
+                    // 班級統計
+                    const classEmptyCount = classTotalSeats - classOccupiedCount;
+                    worksheetData.push(['']); // 空行
+                    worksheetData.push(['班級統計', '', '', '', '', '', '']);
+                    worksheetData.push(['已安排座位:', classOccupiedCount, '', '', '', '', '']);
+                    worksheetData.push(['空座位:', classEmptyCount, '', '', '', '', '']);
+                    worksheetData.push(['總座位數:', classTotalSeats, '', '', '', '', '']);
+                    
+                    // 如果不是最後一個班級，添加分隔線
+                    if (classIndex < Object.keys(classesData).length - 1) {
+                        worksheetData.push(['']); // 空行
+                        worksheetData.push(['='.repeat(50), '', '', '', '', '', '']); // 分隔線
+                        worksheetData.push(['']); // 空行
+                    }
+                });
+                
+                // 總統計資料
+                const totalEmptySeats = totalSeatsAllClasses - totalStudentsAllClasses;
+                worksheetData.push(['']); // 空行
+                worksheetData.push(['='.repeat(50), '', '', '', '', '', '']); // 分隔線
+                worksheetData.push(['總統計資料', '', '', '', '', '', '']);
+                worksheetData.push(['總班級數:', Object.keys(classesData).length, '', '', '', '', '']);
+                worksheetData.push(['總學生人數:', totalStudentsAllClasses, '', '', '', '', '']);
+                worksheetData.push(['總座位數:', totalSeatsAllClasses, '', '', '', '', '']);
+                worksheetData.push(['總空座位:', totalEmptySeats, '', '', '', '', '']);
+                
+                // 轉換為CSV格式
+                const csvContent = worksheetData.map(row => 
+                    row.map(cell => {
+                        // 處理包含逗號或引號的內容
+                        const cellStr = String(cell || '');
+                        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+                            return '"' + cellStr.replace(/"/g, '""') + '"';
+                        }
+                        return cellStr;
+                    }).join(',')
+                ).join('\n');
+                
+                // 添加BOM以支援中文
+                const BOM = '\uFEFF';
+                const csvWithBOM = BOM + csvContent;
+                
+                // 創建下載連結
+                const blob = new Blob([csvWithBOM], { type: 'text/csv;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                // 創建隱藏的下載連結
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `所有班級座位表_${new Date().toISOString().split('T')[0]}.csv`;
+                downloadLink.style.display = 'none';
+                
+                // 添加到頁面並觸發下載
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(downloadLink);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                // 顯示成功訊息
+                setTimeout(() => {
+                    alert(`所有班級Excel檔案已成功匯出！\n\n• 檔案格式：CSV (可用Excel開啟)\n• 班級數量：${Object.keys(classesData).length} 個班級\n• 總學生人數：${totalStudentsAllClasses} 位\n• 總座位數：${totalSeatsAllClasses} 個\n• 檔案名稱：所有班級座位表_${new Date().toISOString().split('T')[0]}.csv\n\n📋 包含班級：\n${Object.values(classesData).map(c => `• ${c.name}`).join('\n')}\n\n💡 提示：用Excel開啟CSV檔案時，請確保編碼設定為UTF-8以正確顯示中文。`);
+                }, 200);
+                
+            } catch (error) {
+                console.error('Excel匯出失敗:', error);
+                alert('Excel匯出失敗，請稍後再試。\n錯誤詳情：' + error.message);
+            }
+        }
+
+        // 匯出資料
+        function exportData() {
+            try {
+                // 儲存目前班級資料
+                saveCurrentClassData();
+                
+                // 計算所有班級的統計資料
+                let totalStudents = 0;
+                let totalClasses = Object.keys(classesData).length;
+                
+                Object.values(classesData).forEach(classData => {
+                    totalStudents += classData.students.filter(s => s !== null).length;
+                });
+                
+                // 準備匯出的資料（包含所有班級）
+                const exportData = {
+                    version: '2.0', // 版本升級以支援多班級
+                    timestamp: new Date().toISOString(),
+                    currentClassId: currentClassId,
+                    classesData: classesData,
+                    // 為了向後相容，保留舊格式（目前班級的資料）
+                    seatingConfig: {
+                        columns: columns,
+                        rows: rows,
+                        totalSeats: totalSeats
+                    },
+                    students: students,
+                    studentScores: studentScores
+                };
+                
+                // 轉換為 JSON 字串
+                const jsonString = JSON.stringify(exportData, null, 2);
+                
+                // 創建下載連結
+                const blob = new Blob([jsonString], { type: 'application/json;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                // 創建隱藏的下載連結
+                const downloadLink = document.createElement('a');
+                downloadLink.href = url;
+                downloadLink.download = `所有班級座位資料_${new Date().toISOString().split('T')[0]}.json`;
+                downloadLink.style.display = 'none';
+                
+                // 添加到頁面並觸發下載
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                
+                // 清理
+                setTimeout(() => {
+                    document.body.removeChild(downloadLink);
+                    URL.revokeObjectURL(url);
+                }, 100);
+                
+                // 顯示成功訊息
+                setTimeout(() => {
+                    alert(`所有班級資料已成功匯出！\n\n• 檔案格式：JSON\n• 班級數量：${totalClasses} 個班級\n• 總學生人數：${totalStudents} 位\n• 檔案名稱：所有班級座位資料_${new Date().toISOString().split('T')[0]}.json\n\n📋 包含班級：\n${Object.values(classesData).map(c => `• ${c.name}`).join('\n')}`);
+                }, 200);
+                
+            } catch (error) {
+                console.error('匯出失敗:', error);
+                
+                // 備用方案：顯示資料讓用戶手動複製
+                const exportData = {
+                    version: '2.0',
+                    timestamp: new Date().toISOString(),
+                    currentClassId: currentClassId,
+                    classesData: classesData
+                };
+                
+                const jsonString = JSON.stringify(exportData, null, 2);
+                
+                // 顯示複製對話框
+                showExportFallback(jsonString);
+            }
+        }
+
+        // 備用匯出方案
+        function showExportFallback(jsonString) {
+            const modal = document.createElement('div');
+            modal.className = 'modal';
+            modal.style.display = 'block';
+            modal.innerHTML = `
+                <div class="modal-content" style="max-width: 600px;">
+                    <h3 class="modal-title">💾 匯出座位資料</h3>
+                    <p style="color: #718096; margin-bottom: 15px;">請複製以下內容並儲存為 .json 檔案：</p>
+                    <textarea id="exportTextarea" style="width: 100%; height: 300px; font-family: monospace; font-size: 12px; padding: 10px; border: 2px solid #e2e8f0; border-radius: 8px; resize: vertical;">${jsonString}</textarea>
+                    <div style="margin: 15px 0; padding: 10px; background: #f0f8ff; border-radius: 8px; font-size: 0.9rem; color: #2c5282;">
+                        💡 <strong>使用說明：</strong><br>
+                        1. 點擊「複製到剪貼簿」按鈕<br>
+                        2. 開啟文字編輯器（如記事本）<br>
+                        3. 貼上內容並儲存為 .json 檔案
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" onclick="document.body.removeChild(this.closest('.modal'))">關閉</button>
+                        <button class="btn btn-primary" onclick="copyExportData()">📋 複製到剪貼簿</button>
+                    </div>
+                </div>
+            `;
+            
+            document.body.appendChild(modal);
+            
+            // 自動選中文字
+            const textarea = modal.querySelector('#exportTextarea');
+            textarea.select();
+        }
+
+        // 複製匯出資料到剪貼簿
+        function copyExportData() {
+            const textarea = document.getElementById('exportTextarea');
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                alert('資料已複製到剪貼簿！請貼到文字編輯器中儲存為 .json 檔案。');
+            } catch (error) {
+                alert('複製失敗，請手動選取並複製文字區域的內容。');
+            }
+        }
+
+        // 更新統計資訊
+        function updateStats() {
+            const occupied = students.filter(student => student !== null && student !== undefined && student.trim() !== '').length;
+            const empty = totalSeats - occupied;
+            
+            document.getElementById('occupiedCount').textContent = occupied;
+            document.getElementById('emptyCount').textContent = empty;
+            document.getElementById('totalSeatsCount').textContent = totalSeats;
+            
+            // 同時更新班級統計
+            updateClassStats();
+        }
+
+        // 顯示匯入模態框
+        function showImportModal() {
+            document.getElementById('importModal').style.display = 'block';
+            switchImportMode('text'); // 預設為手動輸入模式
+        }
+
+        // 關閉匯入模態框
+        function closeImportModal() {
+            document.getElementById('importModal').style.display = 'none';
+            document.getElementById('studentListInput').value = '';
+            document.getElementById('fileInput').value = '';
+        }
+
+        // 切換匯入模式
+        function switchImportMode(mode) {
+            const textMode = document.getElementById('textInputMode');
+            const fileMode = document.getElementById('fileInputMode');
+            const textBtn = document.getElementById('textInputBtn');
+            const fileBtn = document.getElementById('fileInputBtn');
+
+            if (mode === 'text') {
+                textMode.style.display = 'block';
+                fileMode.style.display = 'none';
+                textBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                textBtn.style.color = 'white';
+                fileBtn.style.background = '#f7fafc';
+                fileBtn.style.color = '#4a5568';
+            } else {
+                textMode.style.display = 'none';
+                fileMode.style.display = 'block';
+                fileBtn.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                fileBtn.style.color = 'white';
+                textBtn.style.background = '#f7fafc';
+                textBtn.style.color = '#4a5568';
+            }
+        }
+
+        // 匯入學生名單
+        function importStudents() {
+            const textMode = document.getElementById('textInputMode').style.display !== 'none';
+            let studentNames = [];
+
+            if (textMode) {
+                // 手動輸入模式
+                const input = document.getElementById('studentListInput').value.trim();
+                if (!input) {
+                    alert('請輸入學生姓名！');
+                    return;
+                }
+                studentNames = input.split('\n')
+                    .map(name => name.trim())
+                    .filter(name => name.length > 0);
+            } else {
+                // 檔案上傳模式
+                const fileInput = document.getElementById('fileInput');
+                if (!fileInput.files[0]) {
+                    alert('請選擇一個文字檔案！');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                
+                reader.onload = function(e) {
+                    const content = e.target.result;
+                    studentNames = content.split('\n')
+                        .map(name => name.trim())
+                        .filter(name => name.length > 0);
+                    
+                    processImportedStudents(studentNames);
+                };
+                
+                reader.readAsText(file, 'UTF-8');
+                return; // 等待檔案讀取完成
+            }
+
+            processImportedStudents(studentNames);
+        }
+
+        // 處理匯入的學生名單
+        function processImportedStudents(studentNames) {
+            if (studentNames.length === 0) {
+                alert('沒有找到有效的學生姓名！');
+                return;
+            }
+
+            if (studentNames.length > totalSeats) {
+                alert(`學生人數超過座位數量！將只匯入前 ${totalSeats} 位學生。\n（共 ${studentNames.length} 位學生）`);
+                studentNames = studentNames.slice(0, totalSeats);
+            }
+
+            // 清空現有座位和分數
+            students = new Array(totalSeats).fill(null);
+            studentScores = new Array(totalSeats).fill(0);
+
+            // 按順序分配座位（從座位1開始）
+            studentNames.forEach((name, index) => {
+                students[index] = name;
+                studentScores[index] = 0; // 初始化分數為0
+            });
+
+            // 儲存到班級資料
+            saveCurrentClassData();
+
+            closeImportModal();
+            initializeSeating();
+            
+            alert(`成功匯入 ${studentNames.length} 位學生並按順序分配座位！`);
+        }
+
+        // 顯示座位配置模態框
+        function showLayoutModal() {
+            document.getElementById('layoutModal').style.display = 'block';
+            document.getElementById('columnsSlider').value = columns;
+            document.getElementById('rowsSlider').value = rows;
+            updateLayoutPreview();
+        }
+
+        // 關閉座位配置模態框
+        function closeLayoutModal() {
+            document.getElementById('layoutModal').style.display = 'none';
+        }
+
+        // 更新配置預覽
+        function updateLayoutPreview() {
+            const newColumns = parseInt(document.getElementById('columnsSlider').value);
+            const newRows = parseInt(document.getElementById('rowsSlider').value);
+            const newTotalSeats = newColumns * newRows;
+            const currentStudents = students.filter(s => s !== null).length;
+
+            document.getElementById('columnsValue').textContent = newColumns;
+            document.getElementById('rowsValue').textContent = newRows;
+            document.getElementById('totalSeatsPreview').textContent = newTotalSeats;
+            document.getElementById('layoutPreview').textContent = `${newColumns} 列 × ${newRows} 欄`;
+            document.getElementById('currentStudentsCount').textContent = currentStudents;
+            document.getElementById('maxStudentsText').textContent = newTotalSeats;
+
+            // 顯示警告
+            const warning = document.getElementById('layoutWarning');
+            if (newTotalSeats < currentStudents) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        // 套用配置變更
+        function applyLayoutChanges() {
+            const newColumns = parseInt(document.getElementById('columnsSlider').value);
+            const newRows = parseInt(document.getElementById('rowsSlider').value);
+            const newTotalSeats = newColumns * newRows;
+            
+            // 收集現有學生資料（按座位順序）
+            const currentStudentData = [];
+            for (let i = 0; i < totalSeats; i++) {
+                if (students[i]) {
+                    currentStudentData.push({
+                        name: students[i],
+                        score: studentScores[i] || 0,
+                        originalSeat: i + 1
+                    });
+                }
+            }
+
+            let removedStudents = [];
+            if (newTotalSeats < currentStudentData.length) {
+                // 計算要刪除的學生（從最後面開始刪除）
+                removedStudents = currentStudentData.slice(newTotalSeats);
+                const removedNames = removedStudents.map(s => `${s.name} (原座位${s.originalSeat})`).join('、');
+                
+                if (!confirm(`新配置只有 ${newTotalSeats} 個座位，但目前有 ${currentStudentData.length} 位學生。\n\n將刪除以下學生：\n${removedNames}\n\n確定要繼續嗎？`)) {
+                    return;
+                }
+            }
+
+            // 更新配置
+            columns = newColumns;
+            rows = newRows;
+            totalSeats = newTotalSeats;
+
+            // 重新分配學生（按順序排列，只保留前面的學生）
+            const newStudents = new Array(totalSeats).fill(null);
+            const newStudentScores = new Array(totalSeats).fill(0);
+            const studentsToKeep = currentStudentData.slice(0, newTotalSeats);
+            
+            // 按順序分配學生到新座位（從座位1開始）
+            studentsToKeep.forEach((studentData, index) => {
+                newStudents[index] = studentData.name;
+                newStudentScores[index] = studentData.score;
+            });
+
+            students = newStudents;
+            studentScores = newStudentScores;
+            
+            // 儲存到班級資料
+            saveCurrentClassData();
+            
+            closeLayoutModal();
+            initializeSeating();
+
+            let message = `座位配置已更新為 ${columns} 列 × ${rows} 欄 (共 ${totalSeats} 個座位)\n學生已按原順序重新排列`;
+            if (removedStudents.length > 0) {
+                message += `\n\n已刪除 ${removedStudents.length} 位學生：\n${removedStudents.map(s => s.name).join('、')}`;
+            }
+            
+            alert(message);
+        }
+
+        // 顯示匯入資料模態框
+        function showImportDataModal() {
+            document.getElementById('importDataModal').style.display = 'block';
+            document.getElementById('dataFileInput').value = '';
+            
+            // 檢查是否有任何班級有資料，顯示警告
+            let hasData = false;
+            Object.values(classesData).forEach(classData => {
+                if (classData.students.some(student => student !== null)) {
+                    hasData = true;
+                }
+            });
+            
+            const warning = document.getElementById('importDataWarning');
+            if (hasData) {
+                warning.style.display = 'block';
+            } else {
+                warning.style.display = 'none';
+            }
+        }
+
+        // 關閉匯入資料模態框
+        function closeImportDataModal() {
+            document.getElementById('importDataModal').style.display = 'none';
+            document.getElementById('dataFileInput').value = '';
+        }
+
+        // 匯入資料
+        function importData() {
+            const fileInput = document.getElementById('dataFileInput');
+            if (!fileInput.files[0]) {
+                alert('請選擇一個 JSON 資料檔案！');
+                return;
+            }
+
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    
+                    // 檢查是否為新版本（多班級）格式
+                    if (importedData.version === '2.0' && importedData.classesData) {
+                        // 新版本多班級格式
+                        const classCount = Object.keys(importedData.classesData).length;
+                        const totalStudents = Object.values(importedData.classesData)
+                            .reduce((total, classData) => total + classData.students.filter(s => s !== null).length, 0);
+                        
+                        if (!confirm(`即將匯入多班級資料：\n• ${classCount} 個班級\n• 總共 ${totalStudents} 位學生\n\n這將會覆蓋目前所有的班級和學生資料，確定要繼續嗎？`)) {
+                            return;
+                        }
+                        
+                        // 匯入所有班級資料
+                        classesData = { ...importedData.classesData };
+                        currentClassId = importedData.currentClassId || Object.keys(classesData)[0];
+                        
+                        // 載入目前班級資料
+                        loadCurrentClassData();
+                        
+                        // 更新介面
+                        updateClassSelector();
+                        initializeSeating();
+                        
+                        // 自動儲存到 localStorage
+                        saveToLocalStorage();
+                        
+                        alert(`多班級資料匯入成功！\n• 匯入班級數：${classCount} 個\n• 總學生人數：${totalStudents} 位\n• 目前班級：${classesData[currentClassId].name}\n• 資料已自動儲存到本地`);
+                        
+                    } else if (importedData.seatingConfig && importedData.students && importedData.studentScores) {
+                        // 舊版本單班級格式
+                        const importedStudents = importedData.students.filter(s => s !== null).length;
+                        
+                        if (!confirm(`即將匯入單班級資料：\n• 1 個班級\n• ${importedStudents} 位學生\n\n這將會覆蓋目前班級的座位安排和學生資料，確定要繼續嗎？`)) {
+                            return;
+                        }
+                        
+                        // 匯入到目前班級
+                        columns = importedData.seatingConfig.columns;
+                        rows = importedData.seatingConfig.rows;
+                        totalSeats = importedData.seatingConfig.totalSeats;
+                        
+                        students = [...importedData.students];
+                        studentScores = [...importedData.studentScores];
+                        
+                        // 確保陣列長度正確
+                        while (students.length < totalSeats) students.push(null);
+                        while (studentScores.length < totalSeats) studentScores.push(0);
+                        
+                        // 儲存到班級資料
+                        saveCurrentClassData();
+                        
+                        // 更新介面
+                        updateClassSelector();
+                        initializeSeating();
+                        
+                        // 自動儲存到 localStorage
+                        saveToLocalStorage();
+                        
+                        alert(`資料匯入成功！\n• 座位配置：${columns} 列 × ${rows} 欄\n• 學生人數：${importedStudents} 位\n• 匯入時間：${importedData.timestamp ? new Date(importedData.timestamp).toLocaleString() : '未知'}\n• 資料已自動儲存到本地`);
+                        
+                    } else {
+                        throw new Error('不支援的資料格式');
+                    }
+                    
+                    closeImportDataModal();
+                    
+                } catch (error) {
+                    alert('檔案格式錯誤或資料損壞，請確認選擇的是正確的座位資料檔案！\n錯誤詳情：' + error.message);
+                }
+            };
+            
+            reader.readAsText(file, 'UTF-8');
+        }
+
+        // 抽籤功能變數
+        let isSpinning = false;
+        let availableStudents = [];
+        let selectedStudents = []; // 已抽中的學生
+        let lotteryHistory = []; // 抽籤歷史
+
+        // 音效功能
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // 檢查音效是否開啟
+        function isSoundEnabled() {
+            const soundCheckbox = document.getElementById('soundEnabled');
+            return soundCheckbox && soundCheckbox.checked;
+        }
+
+        // 創建不同頻率的音效
+        function playSound(frequency, duration, type = 'sine') {
+            if (!isSoundEnabled()) return;
+            
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                oscillator.type = type;
+                
+                gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + duration);
+            } catch (error) {
+                console.log('音效播放失敗:', error);
+            }
+        }
+
+        // 播放抽籤動畫音效（快速嗶嗶聲）
+        function playLotteryTickSound() {
+            playSound(800, 0.1, 'square');
+        }
+
+        // 播放結果音效（成功音效）
+        function playResultSound() {
+            if (!isSoundEnabled()) return;
+            // 播放一個上升的音階
+            setTimeout(() => playSound(523, 0.2), 0);    // C5
+            setTimeout(() => playSound(659, 0.2), 100);  // E5
+            setTimeout(() => playSound(784, 0.3), 200);  // G5
+            setTimeout(() => playSound(1047, 0.4), 300); // C6
+        }
+
+        // 播放重設音效
+        function playResetSound() {
+            playSound(400, 0.3, 'sawtooth');
+        }
+
+        // 顯示抽籤控制面板
+        function showLotteryControls() {
+            // 獲取所有有學生的座位
+            updateAvailableStudents();
+            
+            if (availableStudents.length === 0) {
+                alert('目前沒有學生可以抽籤！請先新增一些學生。');
+                return;
+            }
+
+            document.getElementById('lotteryControls').style.display = 'block';
+            updateLotteryStatus();
+        }
+
+        // 隱藏抽籤控制面板
+        function hideLotteryControls() {
+            document.getElementById('lotteryControls').style.display = 'none';
+            // 清除所有高亮
+            clearAllHighlights();
+        }
+
+        // 更新可用學生列表
+        function updateAvailableStudents() {
+            const mode = document.getElementById('lotteryMode').value;
+            
+            if (mode === 'reset') {
+                // 重複抽籤模式：所有學生都可以被抽到（排除請假學生）
+                availableStudents = [];
+                for (let i = 0; i < totalSeats; i++) {
+                    if (students[i] && !studentLeaveStatus[i]) {
+                        availableStudents.push({
+                            name: students[i],
+                            seatIndex: i
+                        });
+                    }
+                }
+            } else {
+                // 連續抽籤模式：排除已抽中的學生和請假學生
+                availableStudents = [];
+                for (let i = 0; i < totalSeats; i++) {
+                    if (students[i] && !selectedStudents.includes(i) && !studentLeaveStatus[i]) {
+                        availableStudents.push({
+                            name: students[i],
+                            seatIndex: i
+                        });
+                    }
+                }
+            }
+        }
+
+        // 更新抽籤狀態顯示
+        function updateLotteryStatus() {
+            const mode = document.getElementById('lotteryMode').value;
+            const totalStudents = students.filter(s => s !== null).length;
+            const selectedCount = selectedStudents.length;
+            const availableCount = availableStudents.length;
+            
+            let statusText = '';
+            if (mode === 'reset') {
+                statusText = `總學生：${totalStudents} 人 | 每次都從全部學生中抽取`;
+            } else {
+                statusText = `總學生：${totalStudents} 人 | 已抽中：${selectedCount} 人 | 剩餘：${availableCount} 人`;
+            }
+            
+            document.getElementById('availableStudentsInfo').textContent = statusText;
+        }
+
+        // 開始直接抽籤
+        function startDirectLottery() {
+            updateAvailableStudents();
+            
+            if (availableStudents.length === 0) {
+                alert('沒有可抽籤的學生了！請重設抽籤或切換到重複抽籤模式。');
+                return;
+            }
+
+            const count = parseInt(document.getElementById('lotteryCount').value);
+            const actualCount = Math.min(count, availableStudents.length);
+            
+            if (actualCount < count) {
+                if (!confirm(`剩餘學生不足 ${count} 人，將抽取 ${actualCount} 人，確定繼續嗎？`)) {
+                    return;
+                }
+            }
+
+            const mode = document.getElementById('lotteryMode').value;
+            
+            // 根據模式決定是否清除之前的高亮
+            if (mode === 'reset') {
+                // 重複抽籤模式：清除所有高亮
+                clearAllHighlights();
+            } else {
+                // 連續抽籤模式：只清除動畫高亮，保留已選中的
+                clearAnimationHighlights();
+            }
+
+            // 隨機選擇學生
+            const selectedInThisRound = [];
+            const shuffled = [...availableStudents].sort(() => Math.random() - 0.5);
+            
+            for (let i = 0; i < actualCount; i++) {
+                selectedInThisRound.push(shuffled[i]);
+            }
+
+            // 顯示抽籤動畫
+            showLotteryAnimation(selectedInThisRound);
+        }
+
+        // 顯示抽籤動畫
+        function showLotteryAnimation(selectedInThisRound) {
+            const seats = document.querySelectorAll('.seat');
+            let animationStep = 0;
+            const maxSteps = 20; // 動畫步數
+            
+            const animationInterval = setInterval(() => {
+                // 清除之前的臨時高亮（但保留已選中的）
+                seats.forEach(seat => {
+                    if (!seat.classList.contains('lottery-selected')) {
+                        seat.classList.remove('lottery-animation');
+                    }
+                });
+                
+                if (animationStep < maxSteps) {
+                    // 播放抽籤音效
+                    playLotteryTickSound();
+                    
+                    // 隨機高亮一些座位（排除已選中的）
+                    const randomSeats = [...seats]
+                        .filter(seat => {
+                            const seatIndex = parseInt(seat.dataset.seatIndex);
+                            return students[seatIndex] && !seat.classList.contains('lottery-selected');
+                        })
+                        .sort(() => Math.random() - 0.5)
+                        .slice(0, selectedInThisRound.length);
+                    
+                    randomSeats.forEach(seat => {
+                        seat.classList.add('lottery-animation');
+                    });
+                    
+                    animationStep++;
+                } else {
+                    // 動畫結束，顯示最終結果
+                    clearInterval(animationInterval);
+                    showFinalLotteryResult(selectedInThisRound);
+                }
+            }, 100);
+        }
+
+        // 顯示最終抽籤結果
+        function showFinalLotteryResult(selectedInThisRound) {
+            // 清除動畫樣式
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                seat.classList.remove('lottery-animation');
+            });
+
+            const mode = document.getElementById('lotteryMode').value;
+
+            // 先將之前的 lottery-current 改為 lottery-previous
+            seats.forEach(seat => {
+                if (seat.classList.contains('lottery-current')) {
+                    seat.classList.remove('lottery-current');
+                    seat.classList.add('lottery-previous');
+                }
+            });
+
+            // 更新選中學生列表（連續抽籤模式）
+            if (mode === 'continue') {
+                selectedInThisRound.forEach(student => {
+                    if (!selectedStudents.includes(student.seatIndex)) {
+                        selectedStudents.push(student.seatIndex);
+                    }
+                });
+            } else {
+                // 重複抽籤模式：清除之前的選中狀態
+                seats.forEach(seat => {
+                    seat.classList.remove('lottery-previous', 'lottery-selected');
+                });
+            }
+
+            // 高亮本次新選中的學生（紅色閃爍）
+            selectedInThisRound.forEach(student => {
+                const seat = document.querySelector(`[data-seat-index="${student.seatIndex}"]`);
+                if (seat) {
+                    seat.classList.remove('lottery-previous', 'lottery-selected');
+                    seat.classList.add('lottery-current');
+                }
+            });
+
+            // 記錄抽籤歷史
+            lotteryHistory.push({
+                timestamp: new Date(),
+                students: selectedInThisRound.map(s => s.name),
+                mode: mode
+            });
+
+            // 更新狀態
+            updateLotteryStatus();
+
+            // 播放成功音效
+            playResultSound();
+            
+            // 顯示結果訊息
+            const names = selectedInThisRound.map(s => s.name).join('、');
+            const message = `🎉 本次抽中：${names}`;
+            
+            // 創建結果提示
+            showLotteryResultMessage(message);
+
+            // 5秒後將本次抽中的改為普通選中狀態（連續抽籤模式）
+            if (mode === 'continue') {
+                setTimeout(() => {
+                    selectedInThisRound.forEach(student => {
+                        const seat = document.querySelector(`[data-seat-index="${student.seatIndex}"]`);
+                        if (seat && seat.classList.contains('lottery-current')) {
+                            seat.classList.remove('lottery-current');
+                            seat.classList.add('lottery-previous');
+                        }
+                    });
+                }, 5000);
+            }
+        }
+
+        // 顯示抽籤結果訊息
+        function showLotteryResultMessage(message) {
+            // 創建結果顯示元素
+            const resultDiv = document.createElement('div');
+            resultDiv.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #ffd700 0%, #ffb347 100%);
+                color: #2d3748;
+                padding: 20px 30px;
+                border-radius: 15px;
+                font-size: 1.5rem;
+                font-weight: bold;
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                z-index: 2000;
+                animation: resultPop 0.5s ease-out;
+                text-align: center;
+                border: 3px solid #ff6b35;
+            `;
+            
+            resultDiv.innerHTML = message;
+            document.body.appendChild(resultDiv);
+            
+            // 3秒後自動移除
+            setTimeout(() => {
+                if (resultDiv.parentNode) {
+                    resultDiv.parentNode.removeChild(resultDiv);
+                }
+            }, 3000);
+        }
+
+        // 顯示清除資料確認對話框
+        function showClearDataModal() {
+            const totalClasses = Object.keys(classesData).length;
+            const totalStudents = Object.values(classesData)
+                .reduce((total, classData) => total + classData.students.filter(s => s !== null).length, 0);
+            
+            const confirmMessage = `⚠️ 確定要清除所有資料嗎？\n\n將會永久刪除：\n• ${totalClasses} 個班級\n• ${totalStudents} 位學生的資料\n• 所有座位安排和分數記錄\n• 本地儲存的資料\n\n此操作無法復原！\n\n請輸入「清除所有資料」來確認：`;
+            
+            const userInput = prompt(confirmMessage);
+            
+            if (userInput === '清除所有資料') {
+                // 清除所有資料
+                clearAllData();
+                alert('所有資料已清除！系統已重設為初始狀態。');
+            } else if (userInput !== null) {
+                alert('輸入不正確，清除操作已取消。');
+            }
+        }
+
+        // 清除所有資料
+        function clearAllData() {
+            // 清除 localStorage
+            clearLocalStorage();
+            
+            // 重設為初始狀態
+            currentClassId = 'class1';
+            classesData = {
+                'class1': {
+                    name: '一年一班',
+                    columns: 6,
+                    rows: 5,
+                    students: new Array(30).fill(null),
+                    studentScores: new Array(30).fill(0)
+                }
+            };
+            
+            // 載入預設班級資料
+            loadCurrentClassData();
+            
+            // 更新介面
+            updateClassSelector();
+            initializeSeating();
+            
+            // 隱藏抽籤控制面板
+            document.getElementById('lotteryControls').style.display = 'none';
+            clearAllHighlights();
+        }
+
+        // 重設抽籤
+        function resetLottery() {
+            playResetSound();
+            selectedStudents = [];
+            lotteryHistory = [];
+            clearAllHighlights();
+            updateAvailableStudents();
+            updateLotteryStatus();
+            
+            alert('抽籤已重設！所有學生都可以重新參與抽籤。');
+        }
+
+        // 清除所有高亮
+        function clearAllHighlights() {
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                seat.classList.remove('lottery-selected', 'lottery-animation', 'lottery-current', 'lottery-previous');
+            });
+        }
+
+        // 清除僅動畫高亮（保留選中狀態）
+        function clearAnimationHighlights() {
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                seat.classList.remove('lottery-animation');
+            });
+        }
+
+        // 開始抽籤（保留原有的輪盤抽籤功能）
+        function startLottery() {
+            // 獲取所有有學生的座位
+            availableStudents = [];
+            for (let i = 0; i < totalSeats; i++) {
+                if (students[i]) {
+                    availableStudents.push({
+                        name: students[i],
+                        seatIndex: i
+                    });
+                }
+            }
+
+            if (availableStudents.length === 0) {
+                alert('目前沒有學生可以抽籤！請先新增一些學生。');
+                return;
+            }
+
+            // 顯示抽籤模態框
+            document.getElementById('lotteryModal').style.display = 'block';
+            document.getElementById('lotteryStudentCount').textContent = availableStudents.length;
+            
+            // 重置抽籤狀態
+            resetLotteryDisplay();
+        }
+
+        // 重置抽籤顯示
+        function resetLotteryDisplay() {
+            const wheelContainer = document.getElementById('wheelContainer');
+            const resultDisplay = document.getElementById('resultDisplay');
+            const readyMessage = document.getElementById('readyMessage');
+            const lotteryBtn = document.getElementById('lotteryBtn');
+
+            wheelContainer.style.transform = 'rotate(0deg)';
+            resultDisplay.style.display = 'none';
+            readyMessage.style.display = 'block';
+            lotteryBtn.textContent = '🎲 開始抽籤';
+            lotteryBtn.onclick = spinWheel;
+            isSpinning = false;
+        }
+
+        // 轉動輪盤
+        function spinWheel() {
+            if (isSpinning || availableStudents.length === 0) return;
+
+            isSpinning = true;
+            const lotteryBtn = document.getElementById('lotteryBtn');
+            const wheelContainer = document.getElementById('wheelContainer');
+            const readyMessage = document.getElementById('readyMessage');
+
+            // 更新按鈕狀態
+            lotteryBtn.textContent = '🎲 抽籤中...';
+            lotteryBtn.disabled = true;
+            readyMessage.textContent = '正在抽籤中，請稍候...';
+
+            // 播放輪盤轉動音效（連續的嗶嗶聲）
+            let tickCount = 0;
+            const tickInterval = setInterval(() => {
+                playLotteryTickSound();
+                tickCount++;
+                if (tickCount >= 25) { // 播放2.5秒的音效
+                    clearInterval(tickInterval);
+                }
+            }, 100);
+
+            // 隨機選擇學生
+            const selectedIndex = Math.floor(Math.random() * availableStudents.length);
+            const selectedStudent = availableStudents[selectedIndex];
+
+            // 計算轉動角度（多轉幾圈增加效果）
+            const baseRotation = 1440; // 4圈
+            const randomRotation = Math.floor(Math.random() * 360);
+            const totalRotation = baseRotation + randomRotation;
+
+            // 開始轉動
+            wheelContainer.style.transform = `rotate(${totalRotation}deg)`;
+
+            // 3秒後顯示結果
+            setTimeout(() => {
+                showLotteryResult(selectedStudent);
+            }, 3000);
+        }
+
+        // 顯示抽籤結果
+        function showLotteryResult(selectedStudent) {
+            const resultDisplay = document.getElementById('resultDisplay');
+            const readyMessage = document.getElementById('readyMessage');
+            const selectedStudentSpan = document.getElementById('selectedStudent');
+            const lotteryBtn = document.getElementById('lotteryBtn');
+
+            // 播放成功音效
+            playResultSound();
+
+            // 顯示結果
+            selectedStudentSpan.textContent = selectedStudent.name;
+            resultDisplay.style.display = 'block';
+            readyMessage.style.display = 'none';
+
+            // 高亮顯示被選中的學生座位
+            highlightSelectedSeat(selectedStudent.seatIndex);
+
+            // 更新按鈕
+            lotteryBtn.textContent = '🎲 再次抽籤';
+            lotteryBtn.disabled = false;
+            lotteryBtn.onclick = () => {
+                resetLotteryDisplay();
+                setTimeout(spinWheel, 100);
+            };
+
+            isSpinning = false;
+        }
+
+        // 高亮顯示選中的座位
+        function highlightSelectedSeat(seatIndex) {
+            // 移除之前的高亮
+            const allSeats = document.querySelectorAll('.seat');
+            allSeats.forEach(seat => {
+                seat.classList.remove('lottery-current', 'lottery-previous');
+            });
+
+            // 添加新的高亮（使用紅色閃爍效果）
+            const selectedSeat = document.querySelector(`[data-seat-index="${seatIndex}"]`);
+            if (selectedSeat) {
+                selectedSeat.classList.add('lottery-current');
+                
+                // 8秒後移除高亮
+                setTimeout(() => {
+                    selectedSeat.classList.remove('lottery-current');
+                }, 8000);
+            }
+        }
+
+        // 關閉抽籤模態框
+        function closeLotteryModal() {
+            document.getElementById('lotteryModal').style.display = 'none';
+            
+            // 移除所有座位高亮
+            const allSeats = document.querySelectorAll('.seat');
+            allSeats.forEach(seat => {
+                seat.classList.remove('lottery-selected', 'lottery-current', 'lottery-previous');
+            });
+            
+            resetLotteryDisplay();
+        }
+
+        // 點擊模態框外部關閉
+        window.onclick = function(event) {
+            const editModal = document.getElementById('editModal');
+            const importModal = document.getElementById('importModal');
+            const layoutModal = document.getElementById('layoutModal');
+            const importDataModal = document.getElementById('importDataModal');
+            const lotteryModal = document.getElementById('lotteryModal');
+            const addClassModal = document.getElementById('addClassModal');
+            const manageClassModal = document.getElementById('manageClassModal');
+            const leaveModal = document.getElementById('leaveModal');
+            
+            if (event.target === editModal) {
+                closeModal();
+            } else if (event.target === importModal) {
+                closeImportModal();
+            } else if (event.target === layoutModal) {
+                closeLayoutModal();
+            } else if (event.target === importDataModal) {
+                closeImportDataModal();
+            } else if (event.target === lotteryModal) {
+                closeLotteryModal();
+            } else if (event.target === addClassModal) {
+                closeAddClassModal();
+            } else if (event.target === manageClassModal) {
+                closeManageClassModal();
+            } else if (event.target === leaveModal) {
+                closeLeaveModal();
+            }
+            
+            const timerModal = document.getElementById('timerModal');
+            if (event.target === timerModal) {
+                closeTimerModal();
+            }
+        }
+
+        // Enter 鍵儲存
+        document.getElementById('studentNameInput').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                saveStudent();
+            }
+        });
+
+        // 拖拉功能變數
+        let dragSourceIndex = null;
+
+        // 拖拉開始
+        function handleDragStart(e) {
+            dragSourceIndex = parseInt(e.target.dataset.seatIndex);
+            e.target.classList.add('drag-source');
+            
+            // 只允許拖拉有學生的座位
+            if (!students[dragSourceIndex]) {
+                e.preventDefault();
+                return false;
+            }
+            
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/html', e.target.outerHTML);
+        }
+
+        // 拖拉經過
+        function handleDragOver(e) {
+            if (e.preventDefault) {
+                e.preventDefault();
+            }
+            e.dataTransfer.dropEffect = 'move';
+            return false;
+        }
+
+        // 拖拉進入
+        function handleDragEnter(e) {
+            e.target.classList.add('drag-over');
+        }
+
+        // 拖拉離開
+        function handleDragLeave(e) {
+            e.target.classList.remove('drag-over');
+        }
+
+        // 放下
+        function handleDrop(e) {
+            if (e.stopPropagation) {
+                e.stopPropagation();
+            }
+
+            const dropTargetIndex = parseInt(e.target.closest('.seat').dataset.seatIndex);
+            
+            if (dragSourceIndex !== dropTargetIndex) {
+                // 交換學生位置和分數
+                const sourceStudent = students[dragSourceIndex];
+                const targetStudent = students[dropTargetIndex];
+                const sourceScore = studentScores[dragSourceIndex];
+                const targetScore = studentScores[dropTargetIndex];
+                
+                students[dragSourceIndex] = targetStudent;
+                students[dropTargetIndex] = sourceStudent;
+                studentScores[dragSourceIndex] = targetScore;
+                studentScores[dropTargetIndex] = sourceScore;
+                
+                initializeSeating();
+            }
+
+            return false;
+        }
+
+        // 拖拉結束
+        function handleDragEnd(e) {
+            // 清除所有拖拉樣式
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                seat.classList.remove('drag-source', 'drag-over');
+            });
+            
+            dragSourceIndex = null;
+        }
+
+        // 音效開關事件監聽器
+        document.addEventListener('DOMContentLoaded', function() {
+            const soundCheckbox = document.getElementById('soundEnabled');
+            const soundStatus = document.getElementById('soundStatus');
+            
+            if (soundCheckbox && soundStatus) {
+                soundCheckbox.addEventListener('change', function() {
+                    soundStatus.textContent = this.checked ? '開啟' : '關閉';
+                    
+                    // 播放測試音效（如果開啟）
+                    if (this.checked) {
+                        setTimeout(() => playSound(523, 0.2), 100);
+                    }
+                });
+            }
+        });
+
+        // 顯示請假管理模態框
+        function showLeaveModal() {
+            document.getElementById('leaveModal').style.display = 'block';
+            switchLeaveTab('leave');
+            updateLeaveStudentSelect();
+        }
+
+        // 關閉請假管理模態框
+        function closeLeaveModal() {
+            document.getElementById('leaveModal').style.display = 'none';
+        }
+
+        // 切換請假管理頁籤
+        function switchLeaveTab(tab) {
+            // 隱藏所有頁籤內容
+            document.getElementById('leaveTab').style.display = 'none';
+            document.getElementById('returnTab').style.display = 'none';
+            document.getElementById('historyTab').style.display = 'none';
+            
+            // 重設按鈕樣式
+            document.getElementById('leaveTabBtn').className = 'btn btn-secondary';
+            document.getElementById('returnTabBtn').className = 'btn btn-secondary';
+            document.getElementById('historyTabBtn').className = 'btn btn-secondary';
+            
+            // 顯示選中的頁籤
+            if (tab === 'leave') {
+                document.getElementById('leaveTab').style.display = 'block';
+                document.getElementById('leaveTabBtn').className = 'btn btn-primary';
+                updateLeaveStudentSelect();
+            } else if (tab === 'return') {
+                document.getElementById('returnTab').style.display = 'block';
+                document.getElementById('returnTabBtn').className = 'btn btn-primary';
+                updateOnLeaveStudentsList();
+            } else if (tab === 'history') {
+                document.getElementById('historyTab').style.display = 'block';
+                document.getElementById('historyTabBtn').className = 'btn btn-primary';
+                updateLeaveHistoryList();
+            }
+        }
+
+        // 更新請假學生選擇列表
+        function updateLeaveStudentSelect() {
+            const select = document.getElementById('leaveStudentSelect');
+            select.innerHTML = '<option value="">請選擇學生</option>';
+            
+            for (let i = 0; i < totalSeats; i++) {
+                if (students[i] && !studentLeaveStatus[i]) {
+                    const option = document.createElement('option');
+                    option.value = i;
+                    option.textContent = `${students[i]} (座位 ${i + 1})`;
+                    select.appendChild(option);
+                }
+            }
+            
+            // 設定今天的日期為預設值
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('leaveDateInput').value = today;
+        }
+
+        // 設定學生請假
+        function setStudentLeave() {
+            const seatIndex = parseInt(document.getElementById('leaveStudentSelect').value);
+            const leaveType = document.getElementById('leaveTypeSelect').value;
+            const leaveReason = document.getElementById('leaveReasonInput').value.trim();
+            const leaveDate = document.getElementById('leaveDateInput').value;
+            
+            if (isNaN(seatIndex)) {
+                alert('請選擇要請假的學生！');
+                return;
+            }
+            
+            if (!leaveDate) {
+                alert('請選擇請假日期！');
+                return;
+            }
+            
+            const studentName = students[seatIndex];
+            
+            // 設定請假狀態
+            studentLeaveStatus[seatIndex] = true;
+            
+            // 確保班級資料結構中的請假狀態陣列存在並更新
+            if (!classesData[currentClassId].studentLeaveStatus) {
+                classesData[currentClassId].studentLeaveStatus = new Array(totalSeats).fill(false);
+            }
+            classesData[currentClassId].studentLeaveStatus[seatIndex] = true;
+            
+            // 記錄請假資訊
+            const leaveRecord = {
+                id: Date.now(),
+                studentName: studentName,
+                seatIndex: seatIndex,
+                leaveType: leaveType,
+                leaveReason: leaveReason,
+                leaveDate: leaveDate,
+                leaveTime: new Date().toISOString(),
+                returnTime: null,
+                status: 'on-leave'
+            };
+            
+            // 添加到請假記錄
+            if (!classesData[currentClassId].leaveHistory) {
+                classesData[currentClassId].leaveHistory = [];
+            }
+            classesData[currentClassId].leaveHistory.push(leaveRecord);
+            
+            // 儲存資料
+            saveCurrentClassData();
+            
+            // 更新座位顯示
+            initializeSeating();
+            
+            // 清空表單
+            document.getElementById('leaveStudentSelect').value = '';
+            document.getElementById('leaveReasonInput').value = '';
+            
+            // 顯示成功訊息
+            const typeNames = {
+                'sick': '病假',
+                'personal': '事假',
+                'family': '家庭事假',
+                'other': '其他'
+            };
+            
+            alert(`${studentName} 的${typeNames[leaveType]}已設定完成！\n請假日期：${leaveDate}\n座位將顯示為請假狀態。`);
+            
+            // 更新學生選擇列表
+            updateLeaveStudentSelect();
+        }
+
+        // 更新請假學生列表
+        function updateOnLeaveStudentsList() {
+            const container = document.getElementById('onLeaveStudentsList');
+            container.innerHTML = '';
+            
+            const onLeaveStudents = [];
+            for (let i = 0; i < totalSeats; i++) {
+                if (students[i] && studentLeaveStatus[i]) {
+                    // 找到最新的請假記錄
+                    const leaveRecord = classesData[currentClassId].leaveHistory
+                        .filter(record => record.seatIndex === i && record.status === 'on-leave')
+                        .sort((a, b) => new Date(b.leaveTime) - new Date(a.leaveTime))[0];
+                    
+                    if (leaveRecord) {
+                        onLeaveStudents.push({
+                            seatIndex: i,
+                            studentName: students[i],
+                            leaveRecord: leaveRecord
+                        });
+                    }
+                }
+            }
+            
+            if (onLeaveStudents.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #718096;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">😊</div>
+                        <div style="font-size: 1.1rem; font-weight: 600;">目前沒有學生請假</div>
+                        <div style="font-size: 0.9rem; margin-top: 8px;">所有學生都在校上課</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            onLeaveStudents.forEach(student => {
+                const typeNames = {
+                    'sick': '病假 🤒',
+                    'personal': '事假 📋',
+                    'family': '家庭事假 🏠',
+                    'other': '其他 📝'
+                };
+                
+                const leaveItem = document.createElement('div');
+                leaveItem.style.cssText = `
+                    background: #fbb6ce;
+                    border: 2px solid #ed64a6;
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin-bottom: 15px;
+                    position: relative;
+                `;
+                
+                leaveItem.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between;">
+                        <div>
+                            <div style="font-weight: bold; color: #2d3748; margin-bottom: 8px; font-size: 1.1rem;">
+                                🏥 ${student.studentName} (座位 ${student.seatIndex + 1})
+                            </div>
+                            <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                                <strong>請假類型：</strong>${typeNames[student.leaveRecord.leaveType]}
+                            </div>
+                            <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                                <strong>請假日期：</strong>${student.leaveRecord.leaveDate}
+                            </div>
+                            ${student.leaveRecord.leaveReason ? `
+                                <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                                    <strong>請假原因：</strong>${student.leaveRecord.leaveReason}
+                                </div>
+                            ` : ''}
+                            <div style="color: #718096; font-size: 0.8rem;">
+                                請假時間：${new Date(student.leaveRecord.leaveTime).toLocaleString()}
+                            </div>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="returnStudentFromLeave(${student.seatIndex})" style="background: #48bb78; border: none; padding: 8px 16px;">
+                                ✅ 銷假返校
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                container.appendChild(leaveItem);
+            });
+        }
+
+        // 學生銷假返校
+        function returnStudentFromLeave(seatIndex) {
+            const studentName = students[seatIndex];
+            
+            if (!confirm(`確定要為 ${studentName} 辦理銷假返校嗎？`)) {
+                return;
+            }
+            
+            // 取消請假狀態
+            studentLeaveStatus[seatIndex] = false;
+            
+            // 更新請假記錄狀態
+            const leaveHistory = classesData[currentClassId].leaveHistory || [];
+            for (let i = leaveHistory.length - 1; i >= 0; i--) {
+                if (leaveHistory[i].seatIndex === seatIndex && leaveHistory[i].status === 'on-leave') {
+                    leaveHistory[i].status = 'returned';
+                    leaveHistory[i].returnTime = new Date().toISOString();
+                    break;
+                }
+            }
+            
+            // 確保班級資料結構中的請假狀態陣列存在並更新
+            if (!classesData[currentClassId].studentLeaveStatus) {
+                classesData[currentClassId].studentLeaveStatus = new Array(totalSeats).fill(false);
+            }
+            classesData[currentClassId].studentLeaveStatus[seatIndex] = false;
+            
+            // 儲存所有資料到班級資料結構
+            saveCurrentClassData();
+            
+            // 重新載入目前班級資料以確保同步
+            loadCurrentClassData();
+            
+            // 重新初始化座位表以更新所有狀態
+            initializeSeating();
+            
+            // 更新可用學生列表（抽籤功能）
+            if (typeof updateAvailableStudents === 'function') {
+                updateAvailableStudents();
+            }
+            if (typeof updateLotteryStatus === 'function') {
+                updateLotteryStatus();
+            }
+            
+            // 更新請假學生列表
+            updateOnLeaveStudentsList();
+            
+            // 如果目前在請假記錄頁籤，也要更新
+            if (document.getElementById('historyTab').style.display !== 'none') {
+                updateLeaveHistoryList();
+            }
+            
+            // 更新請假設定頁面的學生選擇列表
+            if (document.getElementById('leaveTab').style.display !== 'none') {
+                updateLeaveStudentSelect();
+            }
+            
+            alert(`${studentName} 已成功銷假返校！\n座位狀態已恢復正常，可以重新參與抽籤活動。`);
+        }
+
+        // 更新請假記錄列表
+        function updateLeaveHistoryList() {
+            const container = document.getElementById('leaveHistoryList');
+            const leaveHistory = classesData[currentClassId].leaveHistory || [];
+            
+            // 更新統計資訊
+            const currentLeaveCount = studentLeaveStatus.filter(status => status).length;
+            document.getElementById('currentLeaveCount').textContent = currentLeaveCount;
+            document.getElementById('totalLeaveRecords').textContent = leaveHistory.length;
+            
+            container.innerHTML = '';
+            
+            if (leaveHistory.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 40px; color: #718096;">
+                        <div style="font-size: 3rem; margin-bottom: 15px;">📋</div>
+                        <div style="font-size: 1.1rem; font-weight: 600;">暫無請假記錄</div>
+                        <div style="font-size: 0.9rem; margin-top: 8px;">學生的請假記錄將會顯示在這裡</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            // 按時間倒序排列
+            const sortedHistory = [...leaveHistory].sort((a, b) => new Date(b.leaveTime) - new Date(a.leaveTime));
+            
+            sortedHistory.forEach(record => {
+                const typeNames = {
+                    'sick': '病假 🤒',
+                    'personal': '事假 📋',
+                    'family': '家庭事假 🏠',
+                    'other': '其他 📝'
+                };
+                
+                const statusNames = {
+                    'on-leave': '請假中',
+                    'returned': '已返校'
+                };
+                
+                const statusColors = {
+                    'on-leave': '#fbb6ce',
+                    'returned': '#c6f6d5'
+                };
+                
+                const historyItem = document.createElement('div');
+                historyItem.style.cssText = `
+                    background: ${statusColors[record.status]};
+                    border: 2px solid ${record.status === 'on-leave' ? '#ed64a6' : '#48bb78'};
+                    border-radius: 10px;
+                    padding: 15px;
+                    margin-bottom: 10px;
+                `;
+                
+                historyItem.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+                        <div style="font-weight: bold; color: #2d3748; font-size: 1.1rem;">
+                            ${record.studentName} (座位 ${record.seatIndex + 1})
+                        </div>
+                        <div style="background: ${record.status === 'on-leave' ? '#ed64a6' : '#48bb78'}; color: white; padding: 4px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: 600;">
+                            ${statusNames[record.status]}
+                        </div>
+                    </div>
+                    <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                        <strong>請假類型：</strong>${typeNames[record.leaveType]}
+                    </div>
+                    <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                        <strong>請假日期：</strong>${record.leaveDate}
+                    </div>
+                    ${record.leaveReason ? `
+                        <div style="color: #4a5568; font-size: 0.9rem; margin-bottom: 5px;">
+                            <strong>請假原因：</strong>${record.leaveReason}
+                        </div>
+                    ` : ''}
+                    <div style="color: #718096; font-size: 0.8rem; margin-bottom: 3px;">
+                        請假時間：${new Date(record.leaveTime).toLocaleString()}
+                    </div>
+                    ${record.returnTime ? `
+                        <div style="color: #718096; font-size: 0.8rem;">
+                            返校時間：${new Date(record.returnTime).toLocaleString()}
+                        </div>
+                    ` : ''}
+                `;
+                
+                container.appendChild(historyItem);
+            });
+        }
+
+        // 清除請假記錄
+        function clearLeaveHistory() {
+            const leaveHistory = classesData[currentClassId].leaveHistory || [];
+            
+            if (leaveHistory.length === 0) {
+                alert('目前沒有請假記錄可以清除。');
+                return;
+            }
+            
+            // 分類記錄：請假中 vs 已銷假
+            const onLeaveRecords = leaveHistory.filter(record => record.status === 'on-leave');
+            const returnedRecords = leaveHistory.filter(record => record.status === 'returned');
+            
+            if (returnedRecords.length === 0) {
+                alert('目前沒有已銷假的記錄可以清除。\n\n注意：只能清除已銷假的歷史記錄，目前請假中的記錄不會被清除。');
+                return;
+            }
+            
+            const confirmMessage = `確定要清除已銷假的歷史記錄嗎？\n\n• 將清除：${returnedRecords.length} 筆已銷假記錄\n• 保留：${onLeaveRecords.length} 筆請假中記錄\n\n此操作無法復原。`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // 只保留請假中的記錄，清除已銷假的記錄
+            classesData[currentClassId].leaveHistory = onLeaveRecords;
+            
+            // 儲存資料
+            saveCurrentClassData();
+            
+            // 更新顯示
+            updateLeaveHistoryList();
+            
+            alert(`已清除 ${returnedRecords.length} 筆已銷假的歷史記錄！\n\n目前請假中的 ${onLeaveRecords.length} 筆記錄已保留。`);
+        }
+
+        // 初始化應用程式
+        function initializeApp() {
+            // 嘗試從 localStorage 載入資料
+            const hasLocalData = loadFromLocalStorage();
+            
+            if (hasLocalData) {
+                // 載入目前班級資料
+                loadCurrentClassData();
+                console.log('已載入本地儲存的資料');
+            } else {
+                console.log('使用預設資料');
+            }
+            
+            // 更新介面
+            updateClassSelector();
+            initializeSeating();
+            
+            // 顯示載入狀態
+            if (hasLocalData) {
+                const totalStudents = Object.values(classesData)
+                    .reduce((total, classData) => total + classData.students.filter(s => s !== null).length, 0);
+                
+                console.log(`已載入 ${Object.keys(classesData).length} 個班級，共 ${totalStudents} 位學生`);
+            }
+        }
+
+        // 頁面載入完成後初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        // 頁面卸載前自動儲存
+        window.addEventListener('beforeunload', function() {
+            saveCurrentClassData();
+        });
+
+        // 切換功能表顯示/隱藏
+        function toggleControls() {
+            const controlsPanel = document.getElementById('controlsPanel');
+            const toggleBtn = document.getElementById('toggleControlsBtn');
+            
+            if (controlsPanel.style.display === 'none') {
+                controlsPanel.style.display = 'flex';
+                toggleBtn.innerHTML = '📋 隱藏功能表';
+                toggleBtn.style.background = '#f56565';
+            } else {
+                controlsPanel.style.display = 'none';
+                toggleBtn.innerHTML = '📋 顯示功能表';
+                toggleBtn.style.background = '#4a5568';
+            }
+        }
+
+        // 切換全螢幕顯示
+        function toggleFullscreen() {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            
+            if (!document.fullscreenElement) {
+                // 進入全螢幕
+                document.documentElement.requestFullscreen().then(() => {
+                    fullscreenBtn.innerHTML = '🖥️ 退出全螢幕';
+                    fullscreenBtn.style.background = '#f56565';
+                }).catch(err => {
+                    console.error('無法進入全螢幕模式:', err);
+                    alert('您的瀏覽器不支援全螢幕功能，或被安全設定阻擋。');
+                });
+            } else {
+                // 退出全螢幕
+                document.exitFullscreen().then(() => {
+                    fullscreenBtn.innerHTML = '🖥️ 全螢幕顯示';
+                    fullscreenBtn.style.background = '#38a169';
+                }).catch(err => {
+                    console.error('無法退出全螢幕模式:', err);
+                });
+            }
+        }
+
+        // 監聽全螢幕狀態變化
+        document.addEventListener('fullscreenchange', function() {
+            const fullscreenBtn = document.getElementById('fullscreenBtn');
+            
+            if (!document.fullscreenElement) {
+                // 已退出全螢幕
+                fullscreenBtn.innerHTML = '🖥️ 全螢幕顯示';
+                fullscreenBtn.style.background = '#38a169';
+            }
+        });
+
+        // 倒數計時器功能變數
+        let timerInterval = null;
+        let timerTotalSeconds = 0;
+        let timerRemainingSeconds = 0;
+        let timerIsRunning = false;
+        let timerIsPaused = false;
+
+        // 顯示計時器模態框
+        function showTimerModal() {
+            document.getElementById('timerModal').style.display = 'block';
+            resetTimer();
+        }
+
+        // 關閉計時器模態框
+        function closeTimerModal() {
+            document.getElementById('timerModal').style.display = 'none';
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            timerIsRunning = false;
+            timerIsPaused = false;
+        }
+
+        // 設定快速計時器
+        function setQuickTimer(minutes, seconds) {
+            document.getElementById('timerMinutes').value = minutes;
+            document.getElementById('timerSeconds').value = seconds;
+            updateTimerDisplay();
+        }
+
+        // 更新計時器顯示
+        function updateTimerDisplay() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+            
+            timerTotalSeconds = minutes * 60 + seconds;
+            timerRemainingSeconds = timerTotalSeconds;
+            
+            const displayMinutes = Math.floor(timerRemainingSeconds / 60);
+            const displaySeconds = timerRemainingSeconds % 60;
+            
+            document.getElementById('timerText').textContent = 
+                `${displayMinutes.toString().padStart(2, '0')}:${displaySeconds.toString().padStart(2, '0')}`;
+            
+            // 更新進度圓圈
+            updateTimerProgress();
+        }
+
+        // 更新計時器進度圓圈
+        function updateTimerProgress() {
+            const progressCircle = document.getElementById('timerProgress');
+            const timerCircle = document.getElementById('timerCircle');
+            
+            if (timerTotalSeconds === 0) {
+                progressCircle.style.strokeDashoffset = '628.32';
+                timerCircle.style.borderColor = '#e2e8f0';
+                return;
+            }
+            
+            const progress = (timerTotalSeconds - timerRemainingSeconds) / timerTotalSeconds;
+            const offset = 628.32 - (progress * 628.32);
+            progressCircle.style.strokeDashoffset = offset;
+            
+            // 根據剩餘時間改變顏色
+            if (timerRemainingSeconds <= 10 && timerRemainingSeconds > 0) {
+                progressCircle.style.stroke = '#f56565';
+                timerCircle.style.borderColor = '#f56565';
+                timerCircle.style.background = 'linear-gradient(135deg, #fed7d7 0%, #feb2b2 100%)';
+            } else if (timerRemainingSeconds <= 30) {
+                progressCircle.style.stroke = '#ed8936';
+                timerCircle.style.borderColor = '#ed8936';
+                timerCircle.style.background = 'linear-gradient(135deg, #feebc8 0%, #fbd38d 100%)';
+            } else {
+                progressCircle.style.stroke = '#667eea';
+                timerCircle.style.borderColor = '#667eea';
+                timerCircle.style.background = 'linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%)';
+            }
+        }
+
+        // 開始計時器
+        function startTimer() {
+            const minutes = parseInt(document.getElementById('timerMinutes').value) || 0;
+            const seconds = parseInt(document.getElementById('timerSeconds').value) || 0;
+            
+            if (minutes === 0 && seconds === 0) {
+                alert('請設定計時時間！');
+                return;
+            }
+            
+            timerTotalSeconds = minutes * 60 + seconds;
+            timerRemainingSeconds = timerTotalSeconds;
+            timerIsRunning = true;
+            timerIsPaused = false;
+            
+            // 更新按鈕狀態
+            document.getElementById('startTimerBtn').style.display = 'none';
+            document.getElementById('pauseTimerBtn').style.display = 'inline-block';
+            document.getElementById('resumeTimerBtn').style.display = 'none';
+            
+            // 更新狀態文字
+            document.getElementById('timerStatus').textContent = '計時進行中...';
+            document.getElementById('timerStatus').style.color = '#48bb78';
+            
+            // 開始倒數
+            timerInterval = setInterval(() => {
+                timerRemainingSeconds--;
+                
+                const displayMinutes = Math.floor(timerRemainingSeconds / 60);
+                const displaySeconds = timerRemainingSeconds % 60;
+                
+                document.getElementById('timerText').textContent = 
+                    `${displayMinutes.toString().padStart(2, '0')}:${displaySeconds.toString().padStart(2, '0')}`;
+                
+                updateTimerProgress();
+                
+                // 播放滴答聲（如果啟用）
+                if (document.getElementById('timerTickEnabled').checked && timerRemainingSeconds <= 10 && timerRemainingSeconds > 0) {
+                    playTimerTickSound();
+                }
+                
+                // 計時結束
+                if (timerRemainingSeconds <= 0) {
+                    timerFinished();
+                }
+            }, 1000);
+        }
+
+        // 暫停計時器
+        function pauseTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            timerIsPaused = true;
+            
+            // 更新按鈕狀態
+            document.getElementById('pauseTimerBtn').style.display = 'none';
+            document.getElementById('resumeTimerBtn').style.display = 'inline-block';
+            
+            // 更新狀態文字
+            document.getElementById('timerStatus').textContent = '計時已暫停';
+            document.getElementById('timerStatus').style.color = '#ed8936';
+        }
+
+        // 繼續計時器
+        function resumeTimer() {
+            if (timerRemainingSeconds <= 0) return;
+            
+            timerIsPaused = false;
+            
+            // 更新按鈕狀態
+            document.getElementById('pauseTimerBtn').style.display = 'inline-block';
+            document.getElementById('resumeTimerBtn').style.display = 'none';
+            
+            // 更新狀態文字
+            document.getElementById('timerStatus').textContent = '計時進行中...';
+            document.getElementById('timerStatus').style.color = '#48bb78';
+            
+            // 繼續倒數
+            timerInterval = setInterval(() => {
+                timerRemainingSeconds--;
+                
+                const displayMinutes = Math.floor(timerRemainingSeconds / 60);
+                const displaySeconds = timerRemainingSeconds % 60;
+                
+                document.getElementById('timerText').textContent = 
+                    `${displayMinutes.toString().padStart(2, '0')}:${displaySeconds.toString().padStart(2, '0')}`;
+                
+                updateTimerProgress();
+                
+                // 播放滴答聲（如果啟用）
+                if (document.getElementById('timerTickEnabled').checked && timerRemainingSeconds <= 10 && timerRemainingSeconds > 0) {
+                    playTimerTickSound();
+                }
+                
+                // 計時結束
+                if (timerRemainingSeconds <= 0) {
+                    timerFinished();
+                }
+            }, 1000);
+        }
+
+        // 重設計時器
+        function resetTimer() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            timerIsRunning = false;
+            timerIsPaused = false;
+            
+            // 重設按鈕狀態
+            document.getElementById('startTimerBtn').style.display = 'inline-block';
+            document.getElementById('pauseTimerBtn').style.display = 'none';
+            document.getElementById('resumeTimerBtn').style.display = 'none';
+            
+            // 重設狀態文字
+            document.getElementById('timerStatus').textContent = '準備開始計時';
+            document.getElementById('timerStatus').style.color = '#718096';
+            
+            // 重設顯示
+            updateTimerDisplay();
+        }
+
+        // 計時結束
+        function timerFinished() {
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            timerIsRunning = false;
+            timerRemainingSeconds = 0;
+            
+            // 更新顯示
+            document.getElementById('timerText').textContent = '00:00';
+            document.getElementById('timerStatus').textContent = '⏰ 計時結束！';
+            document.getElementById('timerStatus').style.color = '#f56565';
+            
+            // 更新按鈕狀態
+            document.getElementById('startTimerBtn').style.display = 'inline-block';
+            document.getElementById('pauseTimerBtn').style.display = 'none';
+            document.getElementById('resumeTimerBtn').style.display = 'none';
+            
+            // 播放結束音效
+            if (document.getElementById('timerSoundEnabled').checked) {
+                playTimerFinishedSound();
+            }
+            
+            // 顯示結束通知
+            showTimerFinishedNotification();
+            
+            // 讓圓圈閃爍
+            const timerCircle = document.getElementById('timerCircle');
+            timerCircle.style.animation = 'timerFinished 1s ease-in-out infinite alternate';
+            
+            setTimeout(() => {
+                timerCircle.style.animation = 'none';
+            }, 5000);
+        }
+
+        // 播放計時器滴答聲
+        function playTimerTickSound() {
+            try {
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.setValueAtTime(1000, audioContext.currentTime);
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
+            } catch (error) {
+                console.log('滴答聲播放失敗:', error);
+            }
+        }
+
+        // 播放計時結束音效
+        function playTimerFinishedSound() {
+            try {
+                // 播放一連串上升音階
+                const notes = [523, 659, 784, 1047, 1319]; // C5, E5, G5, C6, E6
+                notes.forEach((frequency, index) => {
+                    setTimeout(() => {
+                        const oscillator = audioContext.createOscillator();
+                        const gainNode = audioContext.createGain();
+                        
+                        oscillator.connect(gainNode);
+                        gainNode.connect(audioContext.destination);
+                        
+                        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                        oscillator.type = 'sine';
+                        
+                        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+                        
+                        oscillator.start(audioContext.currentTime);
+                        oscillator.stop(audioContext.currentTime + 0.3);
+                    }, index * 150);
+                });
+            } catch (error) {
+                console.log('結束音效播放失敗:', error);
+            }
+        }
+
+        // 顯示計時結束通知
+        function showTimerFinishedNotification() {
+            // 創建通知元素
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+                color: white;
+                padding: 30px 40px;
+                border-radius: 20px;
+                font-size: 2rem;
+                font-weight: bold;
+                box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+                z-index: 3000;
+                text-align: center;
+                border: 4px solid #c53030;
+                animation: timerNotificationPulse 1s ease-in-out infinite alternate;
+            `;
+            
+            notification.innerHTML = `
+                <div style="font-size: 3rem; margin-bottom: 10px;">⏰</div>
+                <div>計時結束！</div>
+                <div style="font-size: 1rem; margin-top: 10px; opacity: 0.9;">Time's Up!</div>
+            `;
+            
+            document.body.appendChild(notification);
+            
+            // 5秒後自動移除
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            }, 5000);
+            
+            // 點擊移除
+            notification.addEventListener('click', () => {
+                if (notification.parentNode) {
+                    notification.parentNode.removeChild(notification);
+                }
+            });
+        }
+
+        // 監聽計時器輸入變化
+        document.addEventListener('DOMContentLoaded', function() {
+            const minutesInput = document.getElementById('timerMinutes');
+            const secondsInput = document.getElementById('timerSeconds');
+            
+            if (minutesInput && secondsInput) {
+                minutesInput.addEventListener('input', updateTimerDisplay);
+                secondsInput.addEventListener('input', updateTimerDisplay);
+                
+                // 初始化顯示
+                updateTimerDisplay();
+            }
+        });
+
+        // 初始化（向後相容）
+        initializeApp();
+    </script>
+<script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9882185f06cd8098',t:'MTc1OTM4NjA0MC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
